@@ -1,41 +1,64 @@
 ---
 name: Tekken Fighter MVP
-overview: "Build a local 1v1 Tekken-style 2D fighter in Godot 4 from the empty MightNite repo: two data-driven characters (Ryuji and Titan), one training stage, best-of-3, with placeholder art because assets/ is empty."
+overview: Build a local 1v1 Tekken-style 2D fighter in Godot 4 using the portraits and stage paintings already in assets/. Ryuji and Titan, five selectable stages, best-of-3. Godot 4 is already installing.
 todos:
   - id: setup
-    content: Install Godot 4, create project.godot, input map, physics layers, folder tree, and empty assets drop folders
+    content: Locate the in-progress Godot 4 install, create project.godot, input map, physics layers, and folder tree. Do not start a second install.
+    status: in_progress
+  - id: art-import
+    content: Cut Ryuji.jpg and Megaman.jpg off the baked checkerboard into PNGs, and add StageData for all five stage paintings.
     status: pending
   - id: movement
-    content: CharacterBase, state machine, input buffer, movement states, placeholder bodies, and soft-lock camera
+    content: CharacterBase, state machine, input buffer, movement posed on the cutout sprites, and soft-lock camera.
     status: pending
   - id: combat-core
-    content: MoveData/CharacterData, hitboxes, one light attack through damage, block, hitstun, hitstop, and sparks
+    content: MoveData/CharacterData, hitboxes, one light attack through damage, block, hitstun, hitstop, and sparks.
     status: pending
   - id: movesets
-    content: Both characters' normals, cancels, scaling, knockdown/getup, and juggles
+    content: Both characters' normals, cancels, scaling, knockdown/getup, and juggles.
     status: pending
   - id: specials
-    content: Ryuji fireball and uppercut, Titan armor and command grab, supers, and throws
+    content: Ryuji fireball and uppercut, Titan armor and command grab, supers, and throws.
     status: pending
   - id: match-ui
-    content: Main menu, character select, 99s best-of-3, health bars, timer, combo counter, round announcer, training stage
+    content: Main menu, character select with the portraits, stage thumbnails, 99s best-of-3, HUD, and the five stages.
     status: pending
   - id: polish-verify
-    content: Shake, block sparks, silent-safe SFX hooks, debug overlay, headless import, and local 1v1 playtest
+    content: Shake, block sparks, silent-safe SFX hooks, debug overlay, headless import, and local 1v1 playtest.
     status: pending
 isProject: false
 ---
 
 # Tekken-Style 2D Fighter MVP
 
-Implement the vertical slice in [initial-prompt.md](initial-prompt.md) as a Godot 4 project in this repo. Scope stays local 1v1: responsive combat, short combos, one stage, two characters, best-of-3. No online, story, ranked, or super meter.
+Implement the vertical slice in [initial-prompt.md](initial-prompt.md) as a Godot 4 project in this repo. Scope stays local 1v1: responsive combat, short combos, two characters, best-of-3. No online, story, ranked, or super meter.
 
-`assets/` exists and is empty, and Godot is not installed. The first pass uses generated placeholder bodies (colored polygons). `CharacterData` keeps an optional sprite path so files dropped into `assets/` later replace placeholders without combat changes.
+Godot 4 is already installing. Do not start another install. At execution time, use whichever binary lands first (`/Applications/Godot.app` or the Homebrew cask). Scripts stay compatible with 4.3+.
+
+## Art on disk
+
+`assets/` now has seven JPEGs. None are sprite sheets, and there is no audio.
+
+Characters, both 784×1168:
+
+- [assets/Ryuji.jpg](assets/Ryuji.jpg) — Ryuji, red-and-black stance. Fighter name stays Ryuji.
+- [assets/Megaman.jpg](assets/Megaman.jpg) — the bald grappler with the T emblem. This is Titan’s sprite. The file name stays `Megaman.jpg`; the character name stays Titan.
+
+Stages, all 1168×784, used as full backgrounds:
+
+- [assets/Temple.jpg](assets/Temple.jpg) — Dojo. Default stage. Clearest floor.
+- [assets/temple2.jpg](assets/temple2.jpg) — Shrine.
+- [assets/tokyo.jpg](assets/tokyo.jpg) — Neon Roof.
+- [assets/harbor.jpg](assets/harbor.jpg) — Dock 7.
+- [assets/underground.jpg](assets/underground.jpg) — The Pit.
+
+Character JPEGs have a light gray/white checkerboard baked into the pixels (JPEG has no alpha). Corners sample around `(210–255, 210–255, 210–255)`. Before they can be in-game sprites, flood-fill that backdrop from the image edges (low saturation, high luminance) and write PNGs with alpha to `assets/processed/Ryuji.png` and `assets/processed/Titan.png`. Leave the original JPEGs untouched. Stage JPEGs are opaque paintings and import as-is.
+
+There are no attack frames. Motion is the cutout sprite plus per-state posing: horizontal flip for facing, bob and lean for walk, squash for crouch, stretch for jump, a lunge offset and rotation per move, a white flash on hit, and a tip-over on knockdown. `MoveData` stores `sprite_offset` and `sprite_rotation`. Titan’s sprite is drawn taller than Ryuji’s so the grappler reads heavier. Hurtboxes follow the opaque sprite bounds, not the full JPEG.
 
 ## Decisions
 
-- Godot 4 stable via `brew install --cask godot`. Scripts stay compatible with 4.3+ (no newer-only APIs).
-- Project lives at the repo root (`project.godot` next to [initial-prompt.md](initial-prompt.md)).
+- Project lives at the repo root (`project.godot` next to [initial-prompt.md](initial-prompt.md)). Godot imports `res://assets/` directly.
 - Renderer: Compatibility. Viewport 1280×720, stretch mode `viewport`, aspect `keep`.
 - Simulation: 60 Hz `_physics_process` only. Frame data is integer frames.
 - Hitstop is a custom pause flag on both fighters and projectiles (round timer pauses with it). UI drawing stays live.
@@ -50,6 +73,7 @@ flowchart LR
   GameManager --> Match
   Match --> MatchManager
   Match --> CombatManager
+  Match --> Stage
   Match --> P1[Player CharacterBase]
   Match --> P2[Player CharacterBase]
   P1 --> StateMachine
@@ -62,18 +86,16 @@ flowchart LR
   MatchManager --> UI
 ```
 
-`GameManager` (autoload) stores the two selected `CharacterData` resources and round score, then `Match.tscn` instances `CharacterBase.tscn` twice and applies that data.
+`GameManager` (autoload) stores the two selected `CharacterData` resources, the chosen `StageData`, and the round score. `Match.tscn` instances `CharacterBase.tscn` twice, applies that data, and loads the stage texture.
 
 ## Layout
 
-Follow the tree in the prompt, plus states and a placeholder art hook:
-
-- [Characters/CharacterBase.gd](Characters/CharacterBase.gd) and `.tscn` — shared body, hurtbox, hitbox container, state machine, input buffer, effects.
+- [Characters/CharacterBase.gd](Characters/CharacterBase.gd) and `.tscn` — shared body, `Sprite2D` fed by the processed PNG, hurtbox, hitbox container, state machine, input buffer, effects.
 - [Characters/Ryuji/](Characters/Ryuji/) and [Characters/Titan/](Characters/Titan/) — thin scripts, `.tscn` instances, and `moves/*.tres`.
 - [Systems/](Systems/) — `InputManager`, `CombatManager`, `HitboxSystem`, `HealthSystem`, `MatchManager`, `StateMachine`, and one script per state under `Systems/States/`.
-- [Resources/MoveData.gd](Resources/MoveData.gd) and [Resources/CharacterData.gd](Resources/CharacterData.gd) — classes from the prompt, plus `height` (`LOW` / `MID` / `HIGH` / `UNBLOCKABLE`), `hitbox: Rect2`, and optional `sprite_path`.
-- [UI/](UI/), [Stages/TrainingStage.tscn](Stages/TrainingStage.tscn), [Core/Constants.gd](Core/Constants.gd), [Scenes/](Scenes/).
-- [assets/characters/](assets/characters/), [assets/stage/](assets/stage/), [assets/sfx/](assets/sfx/) — empty drop folders. If `sprite_path` is missing, draw a rectangle (Ryuji slim/red, Titan wide/steel).
+- [Resources/MoveData.gd](Resources/MoveData.gd) and [Resources/CharacterData.gd](Resources/CharacterData.gd) — classes from the prompt, plus `height` (`LOW` / `MID` / `HIGH` / `UNBLOCKABLE`), `hitbox: Rect2`, `portrait` (the source JPEG, upper-body crop in UI), and `sprite` (processed PNG).
+- [Resources/StageData.gd](Resources/StageData.gd) — `stage_name`, `texture`, `floor_ratio`, and side-wall insets so the invisible ground sits on the painted floor of each painting.
+- [UI/](UI/), [Stages/Stage.tscn](Stages/Stage.tscn) (one scene, five `StageData` resources), [Core/Constants.gd](Core/Constants.gd), [Scenes/](Scenes/).
 
 Physics layers in `Constants.gd`: `P1_HURT`, `P1_HIT`, `P2_HURT`, `P2_HIT`, `WORLD`. Each hitbox only masks the opponent hurtbox.
 
@@ -96,22 +118,23 @@ Cancel routes stay short (normal into special into super, about 3–6 hits). Exa
 
 ## Match flow
 
-[Scenes/MainMenu.tscn](Scenes/MainMenu.tscn) to [Scenes/CharacterSelect.tscn](Scenes/CharacterSelect.tscn) (side-by-side portrait stand-ins, name, confirm) to [Scenes/Match.tscn](Scenes/Match.tscn).
+[Scenes/MainMenu.tscn](Scenes/MainMenu.tscn) to [Scenes/CharacterSelect.tscn](Scenes/CharacterSelect.tscn) to [Scenes/Match.tscn](Scenes/Match.tscn).
 
-[Systems/MatchManager.gd](Systems/MatchManager.gd): 99-second timer, best-of-3, round reset positions, “KO” / “Perfect” / “Time’s Up”, match winner back to the menu. Health bars lerp. Combo counter and round announcer sit on a `CanvasLayer`.
+Character select shows the two portraits side by side (Ryuji and Titan) plus a row of the five stage thumbnails. Confirm passes both choices into `GameManager`. Default stage is the Dojo (`Temple.jpg`).
 
-Training stage: flat ground, left and right walls, simple background. No hazards.
+[Systems/MatchManager.gd](Systems/MatchManager.gd): 99-second timer, best-of-3, round reset positions, “KO” / “Perfect” / “Time’s Up”, match winner back to the menu. Health bars lerp. Combo counter and round announcer sit on a `CanvasLayer`. Each stage is a background sprite, an invisible floor at that stage’s `floor_ratio`, and left/right walls. No hazards.
 
 ## Build order
 
-1. Install Godot, write `project.godot` (input map, layers, 60 Hz, window, autoloads), and the folder tree.
-2. `CharacterBase` movement and facing, `InputManager`, state machine, placeholder draw, camera.
-3. One light attack end to end: `MoveData`, hitbox, damage, hitstun, block, hitstop, spark.
-4. Full normal sets, cancels, scaling, combo counter, knockdown and getup, juggles.
-5. Ryuji fireball and uppercut; Titan armor and command grab; both supers and throws.
-6. Match manager, HUD, character select, main menu, round announcer.
-7. Screen shake, block sparks, placeholder SFX calls (silent if files are missing), debug overlay (state name, hitbox rects, combo).
+1. Locate the Godot 4 binary once the install finishes. Write `project.godot` (input map, layers, 60 Hz, window, autoloads) and the folder tree.
+2. Cut out the two character JPEGs to PNG. Author five `StageData` resources pointing at the stage paintings.
+3. `CharacterBase` movement and facing on those sprites, `InputManager`, state machine, camera.
+4. One light attack end to end: `MoveData`, hitbox, damage, hitstun, block, hitstop, spark.
+5. Full normal sets, cancels, scaling, combo counter, knockdown and getup, juggles.
+6. Ryuji fireball and uppercut; Titan armor and command grab; both supers and throws.
+7. Match manager, HUD, character select, stage thumbnails, main menu, round announcer.
+8. Screen shake, block sparks, silent-safe SFX hooks (no audio files in `assets/`), debug overlay (state name, hitbox rects, combo).
 
 ## Verification
 
-Headless: `godot --headless --import --quit` and a script check so every scene loads. Playtest in the editor: keyboard versus keyboard, then one gamepad if present. Confirm walk, jump, block, a 3-hit cancel combo, fireball, launcher juggle, command grab, round win, and best-of-3 reset. This is a Godot game, so browser checks do not apply.
+Headless: `godot --headless --import --quit` and a script check so every scene loads. Playtest in the editor: keyboard versus keyboard, then one gamepad if present. Confirm the cutout sprites have no checkerboard halo, each stage’s floor lines up with the fighters’ feet, walk, jump, block, a 3-hit cancel combo, fireball, launcher juggle, command grab, round win, and best-of-3 reset. This is a Godot game, so browser checks do not apply.
