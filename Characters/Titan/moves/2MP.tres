@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "2MP"
+input = "2MP"
+startup = 8
+active = 3
+recovery = 15
+damage = 63
+chip_damage = 0
+hitstun = 14
+blockstun = 11
+knockback = Vector2(441, 0)
+launch_force = 0
+is_projectile = false
+is_throw = false
+is_command_grab = false
+armor = false
+hitbox = Rect2(34, -64, 86, 36)
+animation = "2MP"
+cancel_into = Array[String](["2HP", "2HK", "236P", "623P", "236236P"])
+scaling = 1.0
+height = 0
+sprite_offset = Vector2(22, 8)
+sprite_rotation = 0.08
+hitstop_frames = 5

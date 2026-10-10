@@ -28,7 +28,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func trigger_hitstop(frames: int) -> void:
-	var controller := _controller()
+	var controller = _controller()
 	if controller:
 		controller.trigger(frames)
 	else:
@@ -36,7 +36,7 @@ func trigger_hitstop(frames: int) -> void:
 
 
 func is_frozen() -> bool:
-	var controller := _controller()
+	var controller = _controller()
 	if controller:
 		return controller.frames > 0
 	return hitstop_frames > 0

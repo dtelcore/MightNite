@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "jMK"
+input = "jMK"
+startup = 8
+active = 6
+recovery = 15
+damage = 73
+chip_damage = 0
+hitstun = 16
+blockstun = 12
+knockback = Vector2(399, -50)
+launch_force = 0
+is_projectile = false
+is_throw = false
+is_command_grab = false
+armor = false
+hitbox = Rect2(18, -110, 90, 48)
+animation = "jMK"
+cancel_into = Array[String]([])
+scaling = 1.0
+height = 2
+sprite_offset = Vector2(26, -8)
+sprite_rotation = -0.34
+hitstop_frames = 5

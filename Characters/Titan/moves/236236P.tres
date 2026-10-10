@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "236236P"
+input = "236236P"
+startup = 12
+active = 12
+recovery = 30
+damage = 280
+chip_damage = 34
+hitstun = 24
+blockstun = 18
+knockback = Vector2(378, -80)
+launch_force = 640
+is_projectile = false
+is_throw = false
+is_command_grab = false
+armor = false
+hitbox = Rect2(10, -190, 130, 170)
+animation = "236236P"
+cancel_into = Array[String]([])
+scaling = 1.0
+height = 1
+sprite_offset = Vector2(18, -8)
+sprite_rotation = -0.35
+hitstop_frames = 14

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "360P"
+input = "360P"
+startup = 8
+active = 4
+recovery = 26
+damage = 170
+chip_damage = 0
+hitstun = 1
+blockstun = 1
+knockback = Vector2(180, 0)
+launch_force = 0
+is_projectile = false
+is_throw = false
+is_command_grab = true
+armor = false
+hitbox = Rect2(4, -150, 78, 110)
+animation = "360P"
+cancel_into = Array[String]([])
+scaling = 1.0
+height = 3
+sprite_offset = Vector2(14, 4)
+sprite_rotation = 0.25
+hitstop_frames = 8
