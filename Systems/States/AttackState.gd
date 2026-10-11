@@ -30,16 +30,28 @@ func physics_update(_delta: float) -> void:
 	if move.is_projectile and frame == active_start and not released:
 		released = true
 		fighter.spawn_fireball(move)
-	if move.active > 0 and frame == active_start:
-		fighter.enable_hitbox(move.hitbox)
-	if frame == active_end:
-		fighter.disable_hitbox()
 	fighter.armor_active = move.armor and fighter.armor_hits_left > 0 and frame <= active_end
-	if frame >= active_start and frame < active_end:
+	fighter.pose_attack(move, frame)
+	if fighter.anim:
+		fighter.anim.apply_facing(fighter.facing)
+	var total := move.startup + move.active + move.recovery
+	var in_window := frame >= active_start and frame < active_end
+	var weapon_out: bool = frame >= active_start and frame <= total and fighter.weapon_extended()
+	if move.is_projectile:
+		if in_window and frame == active_start:
+			fighter.enable_hitbox(move.hitbox)
+		elif frame == active_end:
+			fighter.disable_hitbox()
+	elif in_window or weapon_out:
+		fighter.set_visual_hitbox()
+	else:
+		fighter.disable_hitbox()
+	if (in_window or weapon_out) and not move.is_projectile:
+		fighter.poll_hitbox()
+	elif move.is_projectile and in_window:
 		fighter.poll_hitbox()
 	if fighter.machine.state_name() != "Attack":
 		return
-	fighter.pose_attack(move, frame)
 	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 18.0 * Constants.WORLD_SCALE)
 	if frame > active_end and fighter.try_cancel(move):
 		return

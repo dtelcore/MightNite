@@ -1,5 +1,7 @@
 extends Control
 
+var hitbox_button: Button
+
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -45,11 +47,31 @@ func _ready() -> void:
 	add_child(fight)
 
 	var hint := Label.new()
-	hint.text = "Enter to fight    Esc to quit"
-	hint.position = Vector2(340, 470)
-	hint.size = Vector2(600, 30)
+	hint.text = "Enter to fight    Esc to quit    F1 toggles hitboxes in a match"
+	hint.position = Vector2(240, 470)
+	hint.size = Vector2(800, 30)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(hint)
+
+	hitbox_button = Button.new()
+	hitbox_button.position = Vector2(490, 520)
+	hitbox_button.size = Vector2(300, 48)
+	hitbox_button.add_theme_font_size_override("font_size", 20)
+	hitbox_button.pressed.connect(func() -> void:
+		GameManager.debug = not GameManager.debug
+		_refresh_hitboxes()
+	)
+	add_child(hitbox_button)
+	_refresh_hitboxes()
+
+
+func _process(_delta: float) -> void:
+	_refresh_hitboxes()
+
+
+func _refresh_hitboxes() -> void:
+	if hitbox_button:
+		hitbox_button.text = "HITBOXES: ON" if GameManager.debug else "HITBOXES: OFF"
 
 
 func _unhandled_input(event: InputEvent) -> void:

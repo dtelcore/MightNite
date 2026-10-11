@@ -113,6 +113,6 @@ func _process(_delta: float) -> void:
 	var hits := maxi(p1.combo_count, p2.combo_count)
 	combo_label.text = "%d HITS" % hits if hits >= 2 else ""
 	if GameManager.debug:
-		debug_label.text = "P1 %s  P2 %s  combo %d/%d" % [p1.machine.state_name(), p2.machine.state_name(), p1.combo_count, p2.combo_count]
+		debug_label.text = "HITBOXES ON    P1 %s  P2 %s  combo %d/%d" % [p1.machine.state_name(), p2.machine.state_name(), p1.combo_count, p2.combo_count]
 	else:
 		debug_label.text = ""

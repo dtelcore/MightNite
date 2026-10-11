@@ -36,6 +36,8 @@ var hitbox: Area2D
 var hit_shape: CollisionShape2D
 var hurt_shape: CollisionShape2D
 var _crouch_hurt := false
+var _hit_notes: Array[Dictionary] = []
+var _idle_forward := 40.0
 
 
 func _ready() -> void:
@@ -58,6 +60,8 @@ func _ready() -> void:
 	anim.name = "Anim"
 	add_child(anim)
 	anim.setup(data)
+	anim.apply_facing(1)
+	_idle_forward = anim.visual_rect().end.x
 
 	var body_shape := CollisionShape2D.new()
 	var body := RectangleShape2D.new()
@@ -135,6 +139,7 @@ func _apply_layers() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_hit_notes()
 	if GameManager.is_frozen():
 		_update_visual()
 		queue_redraw()
@@ -192,6 +197,7 @@ func _update_visual() -> void:
 	if anim == null:
 		return
 	anim.apply_facing(facing)
+	_sync_hurtbox()
 	if flash > 0:
 		anim.modulate = Color(1.6, 0.7, 0.7)
 		flash -= 1
@@ -207,14 +213,44 @@ func _draw() -> void:
 		var angle := TAU * float(i) / 14.0
 		shadow.append(Vector2(cos(angle) * data.body_width * 0.55, sin(angle) * 8.0 - 2.0))
 	draw_colored_polygon(shadow, Color(0, 0, 0, 0.38))
-	if not GameManager.debug or hurt_shape == null or hurt_shape.shape == null:
+	if not GameManager.debug:
 		return
-	var sz: Vector2 = hurt_shape.shape.size
-	draw_rect(Rect2(hurt_shape.position - sz * 0.5, sz), Color(0.2, 1, 0.35, 0.28), false, 2.0)
+	if hurt_shape != null and hurt_shape.shape != null:
+		var sz: Vector2 = hurt_shape.shape.size
+		var body := Rect2(hurt_shape.position - sz * 0.5, sz)
+		draw_rect(body, Color(0.2, 1, 0.35, 0.16), true)
+		draw_rect(body, Color(0.45, 1, 0.55, 0.95), false, 2.0)
 	if hit_shape and hit_shape.shape and not hit_shape.disabled:
 		var hsz: Vector2 = hit_shape.shape.size
-		draw_rect(Rect2(hit_shape.position - hsz * 0.5, hsz), Color(1, 0.15, 0.15, 0.45), true)
-	draw_string(ThemeDB.fallback_font, Vector2(-50, -data.body_height - 18), machine.state_name() if machine else "", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+		var attack := Rect2(hit_shape.position - hsz * 0.5, hsz)
+		draw_rect(attack, Color(1, 0.15, 0.12, 0.28), true)
+		draw_rect(attack, Color(1, 0.35, 0.2, 1), false, 2.0)
+	var font := ThemeDB.fallback_font
+	draw_string(font, Vector2(-50, -data.body_height - 18), machine.state_name() if machine else "", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+	for note in _hit_notes:
+		var age := float(note["age"])
+		var pos := Vector2(-36, -data.body_height - 42.0 - age * 0.85)
+		var text := "HIT %d" % int(note["amount"])
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(font, pos + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0, 0, 0, 0.9))
+		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 0.92, 0.25))
+
+
+func _note_hit(amount: int) -> void:
+	if not GameManager.debug:
+		return
+	_hit_notes.append({"amount": amount, "age": 0})
+
+
+func _tick_hit_notes() -> void:
+	if _hit_notes.is_empty():
+		return
+	var kept: Array[Dictionary] = []
+	for note in _hit_notes:
+		note["age"] = int(note["age"]) + 1
+		if int(note["age"]) < 50:
+			kept.append(note)
+	_hit_notes = kept
 
 
 func set_crouching(on: bool) -> void:
@@ -228,13 +264,42 @@ func set_crouching(on: bool) -> void:
 
 
 func _apply_hurtbox() -> void:
-	if data == null or hurt_shape == null:
+	_sync_hurtbox()
+
+
+func _sync_hurtbox() -> void:
+	if anim == null or hurt_shape == null:
 		return
-	var height := data.body_height * (0.6 if _crouch_hurt else 1.0)
-	var shape := RectangleShape2D.new()
-	shape.size = Vector2(data.body_width * 0.72, height)
-	hurt_shape.shape = shape
-	hurt_shape.position = Vector2(0, -height * 0.5)
+	var rect := anim.visual_rect().grow(2.0)
+	if rect.size.x < 1.0 or rect.size.y < 1.0:
+		return
+	if hurt_shape.shape == null or not (hurt_shape.shape is RectangleShape2D):
+		hurt_shape.shape = RectangleShape2D.new()
+	var shape := hurt_shape.shape as RectangleShape2D
+	shape.size = rect.size
+	hurt_shape.position = rect.get_center()
+
+
+func weapon_extended() -> bool:
+	if anim == null:
+		return false
+	var rect := anim.visual_rect()
+	var reach := rect.end.x if facing > 0 else -rect.position.x
+	return reach > _idle_forward + 6.0
+
+
+func set_visual_hitbox() -> void:
+	if anim == null or hit_shape == null:
+		return
+	var rect := anim.visual_rect().grow(2.0)
+	if rect.size.x < 1.0 or rect.size.y < 1.0:
+		return
+	if hit_shape.shape == null or not (hit_shape.shape is RectangleShape2D):
+		hit_shape.shape = RectangleShape2D.new()
+	var shape := hit_shape.shape as RectangleShape2D
+	shape.size = rect.size
+	hit_shape.position = rect.get_center()
+	hit_shape.disabled = false
 
 
 func face_opponent() -> void:
@@ -394,7 +459,9 @@ func receive_hit(attacker, move: MoveData) -> bool:
 		armor_hits_left -= 1
 		if armor_hits_left <= 0:
 			armor_active = false
-		hp.apply(maxi(1, int(move.damage * 0.5)))
+		var armored := maxi(1, int(move.damage * 0.5))
+		hp.apply(armored)
+		_note_hit(armored)
 		flash = 4
 		health_changed.emit(hp.current, hp.maximum)
 		GameManager.trigger_hitstop(3)
@@ -406,7 +473,9 @@ func receive_hit(attacker, move: MoveData) -> bool:
 	var scale := move.scaling
 	if hits_before >= 3:
 		scale *= pow(0.9, float(hits_before - 2))
-	hp.apply(maxi(1, int(round(float(move.damage) * scale))))
+	var dealt := maxi(1, int(round(float(move.damage) * scale)))
+	hp.apply(dealt)
+	_note_hit(dealt)
 	if attacker != null:
 		attacker.combo_count = hits_before + 1
 	flash = 6
@@ -421,6 +490,7 @@ func receive_hit(attacker, move: MoveData) -> bool:
 func _begin_throw(attacker, move: MoveData) -> void:
 	var hits_before: int = attacker.combo_count if attacker != null else 0
 	hp.apply(move.damage)
+	_note_hit(move.damage)
 	if attacker != null:
 		attacker.combo_count = hits_before + 1
 	health_changed.emit(hp.current, hp.maximum)

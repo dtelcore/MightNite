@@ -39,7 +39,7 @@ func setup(data: CharacterData) -> void:
 		if tex == null:
 			continue
 		var frames := int(tex.get_width() / int(_frame_size.x))
-		_clips[clip] = {"texture": tex, "frames": maxi(frames, 1)}
+		_clips[clip] = {"texture": tex, "frames": maxi(frames, 1), "bounds": _measure(tex, maxi(frames, 1))}
 	if not _clips.has("idle") and _clips.has("combat_idle"):
 		_clips["idle"] = _clips["combat_idle"]
 	play("idle", true, 8.0)
@@ -47,6 +47,61 @@ func setup(data: CharacterData) -> void:
 
 func has_clip(clip: String) -> bool:
 	return _clips.has(clip)
+
+
+func visual_rect() -> Rect2:
+	if _sprite == null or not _clips.has(clip_name):
+		return Rect2()
+	var boxes: Array = _clips[clip_name]["bounds"]
+	if _frame < 0 or _frame >= boxes.size():
+		return Rect2()
+	var box: Rect2 = boxes[_frame]
+	var fw := _frame_size.x
+	var fh := _frame_size.y
+	var left := _pixel_x(box.position.x)
+	var right := _pixel_x(box.position.x + box.size.x)
+	var top := _pixel_y(box.position.y)
+	var bottom := _pixel_y(box.position.y + box.size.y)
+	return Rect2(minf(left, right), minf(top, bottom), absf(right - left), absf(bottom - top))
+
+
+func _pixel_x(pixel: float) -> float:
+	var from_center := pixel - _frame_size.x * 0.5
+	if _sprite.flip_h:
+		from_center = -from_center
+	return from_center * _pixel_scale + _sprite.position.x
+
+
+func _pixel_y(pixel: float) -> float:
+	return (pixel - _frame_size.y * 0.5) * _pixel_scale + _sprite.position.y
+
+
+func _measure(tex: Texture2D, frames: int) -> Array:
+	var image := tex.get_image()
+	var fw := int(_frame_size.x)
+	var fh := int(_frame_size.y)
+	var boxes: Array = []
+	for frame_index in frames:
+		var min_x := fw
+		var min_y := fh
+		var max_x := 0
+		var max_y := 0
+		var found := false
+		if image != null:
+			for y in fh:
+				for x in fw:
+					if image.get_pixel(frame_index * fw + x, y).a < 0.08:
+						continue
+					found = true
+					min_x = mini(min_x, x)
+					min_y = mini(min_y, y)
+					max_x = maxi(max_x, x + 1)
+					max_y = maxi(max_y, y + 1)
+		if not found:
+			boxes.append(Rect2(0, 0, fw, fh))
+		else:
+			boxes.append(Rect2(min_x, min_y, max_x - min_x, max_y - min_y))
+	return boxes
 
 
 func play(clip: String, loop: bool, fps: float) -> void:

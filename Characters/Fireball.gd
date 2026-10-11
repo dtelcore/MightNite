@@ -56,3 +56,5 @@ func _draw() -> void:
 	var s := Constants.WORLD_SCALE
 	draw_circle(Vector2.ZERO, 20.0 * s, Color(1.0, 0.38, 0.1, 0.95))
 	draw_circle(Vector2(-10.0 * s * float(facing), 0), 11.0 * s, Color(1.0, 0.86, 0.45, 0.95))
+	if GameManager.debug:
+		draw_arc(Vector2.ZERO, 22.0 * s, 0.0, TAU, 24, Color(1, 0.35, 0.2, 1), 2.0)
