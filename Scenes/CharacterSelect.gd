@@ -301,13 +301,21 @@ func _on_online_room(row: Dictionary) -> void:
 	if hint:
 		var side := "P1" if Net.local_slot == 0 else "P2"
 		var stage_help := "Q/E stage" if Net.local_slot == 0 else "Host picks the stage"
+		var link := Net.link_status()
 		hint.text = "You are %s    A/D fighter    %s    Enter ready    P1 %s    P2 %s" % [
 			side,
 			stage_help,
 			"ready" if row.get("host_ready") else "picking",
 			"ready" if row.get("guest_ready") else "picking",
 		]
+		if link != "":
+			hint.text += "    " + link
 	_refresh()
+
+
+func _process(_delta: float) -> void:
+	if Net.online and not Net.room.is_empty():
+		_on_online_room(Net.room)
 
 
 func _character_id(index: int) -> String:

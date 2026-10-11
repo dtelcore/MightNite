@@ -273,6 +273,8 @@ func _physics_process(_delta: float) -> void:
 func _process(delta: float) -> void:
 	_poll_link()
 	_service_handshake()
+	if online and not match_live:
+		_consider_fight()
 	if not online or match_live or room_code == "":
 		return
 	_poll_wait += delta
@@ -418,9 +420,9 @@ func _apply_room(row: Dictionary) -> void:
 
 
 func _consider_fight() -> void:
-	if local_slot != 0 or not delay_ready or not _peer_acked or _fight_sent:
+	if local_slot != 0 or not _peer_acked or _fight_sent:
 		return
-	if _text(room.get("status")) != "select":
+	if _text(room.get("status")) not in ["select", "lobby"]:
 		return
 	if not bool(room.get("host_ready")) or not bool(room.get("guest_ready")):
 		return
@@ -499,6 +501,9 @@ func _poll_link() -> void:
 			_channel_open = true
 			_set_notice("Link open")
 			if local_slot == 0:
+				input_delay = maxi(input_delay, 3)
+				_send_delay(input_delay)
+				_last_signal_msec = Time.get_ticks_msec()
 				_send_next_ping()
 		while _channel.get_available_packet_count() > 0:
 			_on_packet(_channel.get_packet())
@@ -622,17 +627,27 @@ func _open_peer() -> void:
 		_set_notice("Could not open a direct link")
 
 
+func link_status() -> String:
+	if not online or _peer_acked or (local_slot == 1 and delay_ready):
+		return ""
+	if link_failed:
+		return "Could not open a direct link"
+	if _channel_open:
+		return "Link open, syncing"
+	if notice.begins_with("Still trying"):
+		return notice
+	return "Opening link..."
+
+
 func _service_handshake() -> void:
 	if not online or _channel_open or link_failed:
-		if online and local_slot == 0 and _channel_open and not delay_ready and not _peer_acked:
-			if Time.get_ticks_msec() - _last_signal_msec > 1000 and input_delay >= 2 and _pings.size() >= 4:
+		if online and local_slot == 0 and _channel_open and not _peer_acked:
+			if Time.get_ticks_msec() - _last_signal_msec > 400:
 				_last_signal_msec = Time.get_ticks_msec()
 				_send_delay(input_delay)
 		return
 	if _link_msec > 0 and Time.get_ticks_msec() - _link_msec > 15000:
-		link_failed = true
-		_set_notice("Could not open a direct link")
-		return
+		_set_notice("Still trying to open a direct link")
 	if _text(room.get("guest_id")) == "" or not socket_ready:
 		return
 	var now := Time.get_ticks_msec()
