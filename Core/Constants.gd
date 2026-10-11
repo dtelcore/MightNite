@@ -12,6 +12,6 @@ const GRAVITY := 1900.0 * WORLD_SCALE
 const FLOOR_Y := 220.0
 const BUFFER_FRAMES := 5
 const FRAME := 1.0 / 60.0
-const GAME_VERSION := "1"
+const GAME_VERSION := "0.0.7"
 
 const BUTTONS: Array[String] = ["lp", "mp", "hp", "lk", "mk", "hk"]

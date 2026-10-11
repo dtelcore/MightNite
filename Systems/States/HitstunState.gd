@@ -12,6 +12,7 @@ func enter(data: Dictionary = {}) -> void:
 	launched = data.get("launched", false)
 	frames = 0
 	fighter.motion_locked = false
+	GameManager.play_sfx("hitstun")
 	fighter.disable_hitbox()
 	fighter.set_crouching(false)
 	var push := 460.0

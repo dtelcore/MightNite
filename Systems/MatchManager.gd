@@ -52,8 +52,11 @@ func _physics_process(_delta: float) -> void:
 			if GameManager.p1_rounds >= 2 or GameManager.p2_rounds >= 2:
 				phase = Phase.MATCH_END
 				timer = 0
-				var winner: String = p1.data.character_name if GameManager.p1_rounds >= 2 else p2.data.character_name
+				var p1_won := GameManager.p1_rounds >= 2
+				var winner: String = p1.data.character_name if p1_won else p2.data.character_name
+				GameManager.record_match(0 if p1_won else 1)
 				hud.announce("%s WINS" % winner.to_upper())
+				hud.show_scoreboard("%s WINS THE MATCH" % winner.to_upper())
 			else:
 				_next_round()
 	elif phase == Phase.MATCH_END:
@@ -76,6 +79,7 @@ func _begin_intro() -> void:
 	_set_locked(true)
 	if hud:
 		hud.announce("ROUND %d" % round_number)
+		hud.clear_scoreboard()
 		hud.set_time(99)
 
 
@@ -101,13 +105,19 @@ func _check_ko() -> bool:
 	GameManager.play_sfx("ko")
 	if p1.hp.current <= 0 and p2.hp.current <= 0:
 		hud.announce("DOUBLE KO")
+		hud.show_scoreboard("DOUBLE KO")
 		return true
+	var line := "KO"
 	if p2.hp.current <= 0:
 		GameManager.p1_rounds += 1
-		hud.announce("PERFECT" if p1.hp.current >= p1.hp.maximum else "KO")
+		line = "PERFECT" if p1.hp.current >= p1.hp.maximum else "KO"
+		hud.announce(line)
+		hud.show_scoreboard("P1 %s" % line)
 	else:
 		GameManager.p2_rounds += 1
-		hud.announce("PERFECT" if p2.hp.current >= p2.hp.maximum else "KO")
+		line = "PERFECT" if p2.hp.current >= p2.hp.maximum else "KO"
+		hud.announce(line)
+		hud.show_scoreboard("P2 %s" % line)
 	return true
 
 
@@ -119,11 +129,14 @@ func _time_up() -> void:
 	if p1.hp.current > p2.hp.current:
 		GameManager.p1_rounds += 1
 		hud.announce("TIME'S UP")
+		hud.show_scoreboard("P1 WINS THE ROUND")
 	elif p2.hp.current > p1.hp.current:
 		GameManager.p2_rounds += 1
 		hud.announce("TIME'S UP")
+		hud.show_scoreboard("P2 WINS THE ROUND")
 	else:
 		hud.announce("DRAW")
+		hud.show_scoreboard("DRAW")
 
 
 func _on_desync() -> void:

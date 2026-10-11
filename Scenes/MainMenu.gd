@@ -48,27 +48,38 @@ func _ready() -> void:
 
 	var online := Button.new()
 	online.text = "ONLINE"
-	online.position = Vector2(490, 420)
-	online.size = Vector2(300, 64)
+	online.position = Vector2(490, 416)
+	online.size = Vector2(300, 56)
 	online.add_theme_font_size_override("font_size", 28)
 	online.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://Scenes/OnlineLobby.tscn")
 	)
 	add_child(online)
 
+	var settings := Button.new()
+	settings.text = "SETTINGS"
+	settings.position = Vector2(490, 484)
+	settings.size = Vector2(300, 56)
+	settings.add_theme_font_size_override("font_size", 28)
+	settings.pressed.connect(func() -> void:
+		get_tree().change_scene_to_file("res://Scenes/Settings.tscn")
+	)
+	add_child(settings)
+
 	var hint := Label.new()
 	hint.text = "Enter to fight    Esc to quit    F1 toggles hitboxes in a match"
-	hint.position = Vector2(240, 500)
+	hint.position = Vector2(240, 556)
 	hint.size = Vector2(800, 30)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(hint)
 
 	hitbox_button = Button.new()
-	hitbox_button.position = Vector2(490, 560)
+	hitbox_button.position = Vector2(490, 600)
 	hitbox_button.size = Vector2(300, 48)
 	hitbox_button.add_theme_font_size_override("font_size", 20)
 	hitbox_button.pressed.connect(func() -> void:
 		GameManager.debug = not GameManager.debug
+		GameManager.save_settings()
 		_refresh_hitboxes()
 	)
 	add_child(hitbox_button)

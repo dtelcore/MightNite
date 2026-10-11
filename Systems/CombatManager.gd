@@ -32,7 +32,8 @@ func on_contact(world_pos: Vector2, facing: int, blocked: bool, move: MoveData) 
 	else:
 		sparks.color = Color(1.0, 0.38, 0.14) if heavy else Color(1.0, 0.78, 0.32)
 		shake = maxf(shake, (18.0 if super_move else (9.0 if heavy else 5.0)) * Constants.WORLD_SCALE)
-		GameManager.play_sfx("hit" if not super_move else "super")
+		GameManager.play_sfx("super" if super_move else "hit_dealt")
+		GameManager.play_sfx("hit_taken")
 	sparks.global_position = world_pos
 	sparks.z_index = 8
 	add_child(sparks)

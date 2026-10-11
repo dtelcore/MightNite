@@ -22,11 +22,14 @@ func physics_update(delta: float) -> void:
 	if fighter.buffer.dash_tapped(false):
 		fighter.machine.change_state("Dash", {"back": true})
 		return
-	if rel.y > 0:
-		fighter.machine.change_state("Crouch")
-		return
 	if rel.y < 0:
 		fighter.machine.change_state("Jump", {})
+		return
+	if rel.x < 0:
+		fighter.machine.change_state("Block")
+		return
+	if rel.y > 0:
+		fighter.machine.change_state("Crouch")
 		return
 	if rel.x != 0:
 		fighter.machine.change_state("Walk", {"back": rel.x < 0})

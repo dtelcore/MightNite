@@ -31,7 +31,7 @@ func setup(data: CharacterData) -> void:
 	_sprite.centered = true
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(_sprite)
-	for clip in ["idle", "combat_idle", "run", "jump", "fall", "attack", "attack_light", "attack_heavy", "hurt", "death", "recover"]:
+	for clip in ["idle", "combat_idle", "run", "jump", "fall", "attack", "attack_light", "attack_heavy", "kick", "hurt", "death", "recover", "block", "crouch_block"]:
 		var path := "%s/%s.png" % [data.anim_folder, clip]
 		if not ResourceLoader.exists(path):
 			continue

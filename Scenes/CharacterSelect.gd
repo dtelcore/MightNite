@@ -43,6 +43,13 @@ func _ready() -> void:
 	_roster()
 	_stage_row()
 
+	var moves := Button.new()
+	moves.text = "MOVE LIST"
+	moves.position = Vector2(160, 640)
+	moves.size = Vector2(220, 52)
+	moves.add_theme_font_size_override("font_size", 20)
+	moves.pressed.connect(_open_moves)
+	add_child(moves)
 	var start := Button.new()
 	start.text = "READY" if Net.online else "START MATCH"
 	start.position = Vector2(490, 640)
@@ -61,6 +68,12 @@ func _ready() -> void:
 			Net.room_updated.connect(_on_online_room)
 		_on_online_room(Net.room)
 	_refresh()
+
+
+func _open_moves() -> void:
+	GameManager.move_list_character = characters[p1_index].resource_path
+	GameManager.move_list_return = "res://Scenes/CharacterSelect.tscn"
+	get_tree().change_scene_to_file("res://Scenes/MoveList.tscn")
 
 
 func _roster() -> void:

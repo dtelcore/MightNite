@@ -20,5 +20,8 @@ func physics_update(delta: float) -> void:
 	if rel.y < 0:
 		fighter.machine.change_state("Jump", {})
 		return
+	if fighter.holding_back():
+		fighter.machine.change_state("Block")
+		return
 	if rel.y <= 0:
 		fighter.machine.change_state("Idle")

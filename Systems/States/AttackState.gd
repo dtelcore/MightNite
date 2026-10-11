@@ -53,9 +53,16 @@ func physics_update(_delta: float) -> void:
 	if fighter.machine.state_name() != "Attack":
 		return
 	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 18.0 * Constants.WORLD_SCALE)
-	if frame > active_end and fighter.try_cancel(move):
+	var on_hit: bool = fighter.hit_connected
+	var cancelling: bool = frame > active_end or (on_hit and frame >= active_start)
+	if cancelling and fighter.try_cancel(move):
 		return
-	if frame >= move.startup + move.active + move.recovery:
+	if frame >= total:
+		var defender_stun: bool = on_hit and fighter.opponent != null and fighter.opponent.machine != null and fighter.opponent.machine.state_name() == "Hitstun"
+		if defender_stun and frame < total + 4 and fighter.try_cancel(move):
+			return
+		if defender_stun and frame < total + 4 and fighter.buffer.pressed_within(Constants.BUTTONS, 4):
+			return
 		fighter.disable_hitbox()
 		fighter.armor_active = false
 		if fighter.on_floor():

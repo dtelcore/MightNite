@@ -148,14 +148,14 @@ func _physics_process(_delta: float) -> void:
 		_update_visual()
 		queue_redraw()
 		return
-	if GameManager.is_frozen():
-		_update_visual()
-		queue_redraw()
-		return
 	if buffer != null:
 		buffer.facing = facing
 		var sample: Dictionary = forced_sample if not forced_sample.is_empty() else Net.sample_for(player_index)
 		buffer.capture(sample)
+	if GameManager.is_frozen():
+		_update_visual()
+		queue_redraw()
+		return
 	if machine:
 		machine.physics_update(Constants.FRAME)
 	_integrate()
@@ -224,10 +224,16 @@ func _update_visual() -> void:
 	if anim == null:
 		return
 	anim.apply_facing(facing)
+	var frames := anim.get_node_or_null("Frames") as Sprite2D
+	if frames != null:
+		frames.position += Vector2(anim_offset.x * float(facing), anim_offset.y)
+		frames.rotation = anim_rotation * float(facing)
 	_sync_hurtbox()
 	if flash > 0:
 		anim.modulate = Color(1.6, 0.7, 0.7)
 		flash -= 1
+	elif machine != null and machine.state_name() == "Block":
+		anim.modulate = Color(0.78, 0.9, 1.12)
 	else:
 		anim.modulate = Color.WHITE
 
@@ -240,6 +246,24 @@ func _draw() -> void:
 		var angle := TAU * float(i) / 14.0
 		shadow.append(Vector2(cos(angle) * data.body_width * 0.55, sin(angle) * 8.0 - 2.0))
 	draw_colored_polygon(shadow, Color(0, 0, 0, 0.38))
+	if machine != null and machine.state_name() == "Block":
+		var guard := float(facing)
+		var top := -data.body_height * (0.42 if crouch_block else 0.72)
+		draw_line(Vector2(8.0 * guard, top), Vector2(26.0 * guard, top + data.body_height * 0.28), Color(0.62, 0.86, 1.0, 0.95), 4.0)
+	var font := ThemeDB.fallback_font
+	var label := state_label()
+	if label != "":
+		var pos := Vector2(-54, -data.body_height - 18)
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(font, pos + offset, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0, 0, 0, 0.85))
+		draw_string(font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, state_color())
+	for note in _hit_notes:
+		var age := float(note["age"])
+		var note_pos := Vector2(-36, -data.body_height - 42.0 - age * 0.85)
+		var text := "HIT %d" % int(note["amount"])
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(font, note_pos + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0, 0, 0, 0.9))
+		draw_string(font, note_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 0.92, 0.25))
 	if not GameManager.debug:
 		return
 	if hurt_shape != null and hurt_shape.shape != null:
@@ -252,20 +276,72 @@ func _draw() -> void:
 		var attack := Rect2(hit_shape.position - hsz * 0.5, hsz)
 		draw_rect(attack, Color(1, 0.15, 0.12, 0.28), true)
 		draw_rect(attack, Color(1, 0.35, 0.2, 1), false, 2.0)
-	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(-50, -data.body_height - 18), machine.state_name() if machine else "", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
-	for note in _hit_notes:
-		var age := float(note["age"])
-		var pos := Vector2(-36, -data.body_height - 42.0 - age * 0.85)
-		var text := "HIT %d" % int(note["amount"])
-		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
-			draw_string(font, pos + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0, 0, 0, 0.9))
-		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 0.92, 0.25))
+
+
+func state_label() -> String:
+	var state := machine.state_name() if machine else ""
+	match state:
+		"Idle":
+			return "Idle"
+		"Walk", "Dash":
+			return "Moving"
+		"Jump":
+			return "Jumping"
+		"Crouch":
+			return "Crouching"
+		"Block":
+			return "Blocking"
+		"Hitstun":
+			return "Hitstun"
+		"Knockdown":
+			return "Knockdown"
+		"Getup":
+			return "Getup"
+		"Throw", "Thrown":
+			return "Throw"
+		"Attack":
+			return "Attacking %s" % attack_strength_name()
+		_:
+			return state
+
+
+func attack_strength_name() -> String:
+	if attack_move == null:
+		return ""
+	var id := attack_move.move_name
+	if id == "236236P":
+		return "Super"
+	if id in ["236P", "623P", "360P", "throw"]:
+		return "Special"
+	var tail := id.substr(maxi(id.length() - 2, 0))
+	match tail:
+		"LP", "LK":
+			return "Light"
+		"MP", "MK":
+			return "Medium"
+		"HP", "HK":
+			return "Heavy"
+		_:
+			return "Special"
+
+
+func state_color() -> Color:
+	if machine != null and machine.state_name() == "Attack":
+		match attack_strength_name():
+			"Light":
+				return Color(1.0, 0.92, 0.35)
+			"Medium":
+				return Color(1.0, 0.55, 0.15)
+			"Heavy":
+				return Color(0.95, 0.2, 0.18)
+			"Special":
+				return Color(0.72, 0.45, 1.0)
+			"Super":
+				return Color(1.0, 0.84, 0.2)
+	return Color.WHITE
 
 
 func _note_hit(amount: int) -> void:
-	if not GameManager.debug:
-		return
 	_hit_notes.append({"amount": amount, "age": 0})
 
 
@@ -355,10 +431,10 @@ func reset_pose() -> void:
 		anim.play("idle", true, 8.0)
 
 
-func desired_move() -> String:
+func desired_move(window: int = Constants.BUFFER_FRAMES) -> String:
 	if locked or data == null:
 		return ""
-	var punch := buffer.pressed_within(["lp", "mp", "hp"])
+	var punch := buffer.pressed_within(["lp", "mp", "hp"], window)
 	if on_floor() and punch:
 		if data.get_move("236236P") and (buffer.matches([2, 3, 6, 2, 3, 6], 24) or buffer.matches([2, 6, 2, 6], 24)):
 			return "236236P"
@@ -368,13 +444,13 @@ func desired_move() -> String:
 			return "623P"
 		if data.get_move("236P") and (buffer.matches([2, 3, 6]) or buffer.matches([2, 6])):
 			return "236P"
-	if on_floor() and buffer.pressed_within(["lp"]) and buffer.pressed_within(["lk"]) and data.get_move("throw"):
+	if on_floor() and buffer.pressed_within(["lp"], window) and buffer.pressed_within(["lk"], window) and data.get_move("throw"):
 		return "throw"
-	return _normal_id()
+	return _normal_id(window)
 
 
-func _normal_id() -> String:
-	var button := buffer.first_pressed(["hp", "mp", "lp", "hk", "mk", "lk"])
+func _normal_id(window: int = Constants.BUFFER_FRAMES) -> String:
+	var button := buffer.first_pressed(GameManager.button_order, window)
 	if button == "":
 		return ""
 	var strength: String = {"lp": "LP", "mp": "MP", "hp": "HP", "lk": "LK", "mk": "MK", "hk": "HK"}[button]
@@ -403,7 +479,10 @@ func try_offense() -> bool:
 
 
 func try_cancel(current: MoveData) -> bool:
-	var id := desired_move()
+	var window := Constants.BUFFER_FRAMES
+	if hit_connected and current != null:
+		window = maxi(window, current.hitstop_frames + 8)
+	var id := desired_move(window)
 	if id == "" or current == null or id == current.move_name:
 		return false
 	if current.cancel_into.find(id) < 0:
@@ -479,6 +558,7 @@ func receive_hit(attacker, move: MoveData) -> bool:
 		was_blocked = true
 		if move.chip_damage > 0:
 			hp.apply(move.chip_damage, false)
+			_note_hit(move.chip_damage)
 			health_changed.emit(hp.current, hp.maximum)
 		if attacker != null:
 			attacker.combo_count = 0
@@ -585,8 +665,34 @@ func pose_attack(move: MoveData, frame: int) -> void:
 		return
 	var total := maxi(move.startup + move.active + move.recovery, 1)
 	var low := move.move_name.begins_with("2") and move.move_name.length() <= 3
+	var ratio := clampf(float(frame) / float(total), 0.0, 1.0)
+	if _is_weapon_kick(move.move_name):
+		_play_kick(ratio, low)
+		return
+	anim_offset = Vector2.ZERO
+	anim_rotation = 0.0
 	anim.set_crouch(1.0 if low else 0.0)
-	anim.play_ratio(_attack_clip(move.move_name), clampf(float(frame) / float(total), 0.0, 1.0))
+	anim.play_ratio(_attack_clip(move.move_name), ratio)
+
+
+func _is_weapon_kick(move_name: String) -> bool:
+	if data == null or not data.uses_weapon:
+		return false
+	return move_name.ends_with("LK") or move_name.ends_with("MK") or move_name.ends_with("HK")
+
+
+func _play_kick(ratio: float, low: bool) -> void:
+	anim.set_crouch(1.0 if low else 0.0)
+	if anim.has_clip("kick"):
+		anim.play_ratio("kick", ratio)
+		anim_offset = Vector2.ZERO
+		anim_rotation = 0.0
+		return
+	var clip := "run" if anim.has_clip("run") else "idle"
+	anim.play(clip, false, 8.0)
+	var extend := sin(clampf(ratio, 0.0, 1.0) * PI)
+	anim_offset = Vector2(16.0 * extend, -4.0 * extend)
+	anim_rotation = 0.4 * extend
 
 
 func pose_hit() -> void:
@@ -595,10 +701,23 @@ func pose_hit() -> void:
 		anim.play("hurt", false, 10.0)
 
 
-func pose_block() -> void:
-	if anim:
-		anim.set_crouch(0.0)
-		anim.play("idle", true, 8.0)
+func pose_block(recoil: bool = false, phase: int = 0) -> void:
+	set_crouching(crouch_block)
+	if anim == null:
+		return
+	var clip := "crouch_block" if crouch_block else "block"
+	if anim.has_clip(clip):
+		anim.set_crouch(1.0 if crouch_block else 0.0)
+		anim.play(clip, true, 10.0)
+		anim_offset = Vector2.ZERO
+		anim_rotation = 0.0
+		return
+	anim.play("idle", true, 8.0)
+	anim.set_crouch(1.0 if crouch_block else 0.0)
+	var bob := sin(float(phase) * 0.45) * 2.0
+	var shove := 12.0 if recoil else 0.0
+	anim_offset = Vector2(-8.0 - shove, bob)
+	anim_rotation = -0.28 if recoil else -0.16
 
 
 func pose_knockdown() -> void:

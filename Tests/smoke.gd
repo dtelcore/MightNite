@@ -101,6 +101,22 @@ func _run() -> void:
 		await physics_frame
 	if p2.hp.current >= before:
 		errors.append("5LP dealt no damage hp=%s state=%s" % [p2.hp.current, p2.machine.state_name()])
+	gm.debug = false
+	if p2._hit_notes.is_empty():
+		errors.append("hit damage hidden while hitboxes are off")
+	if p1.state_label() == "":
+		errors.append("state label hidden while hitboxes are off")
+	p1.start_move("5HP")
+	if p1.state_label() != "Attacking Heavy":
+		errors.append("heavy attack label is %s" % p1.state_label())
+	if p1.attack_strength_name() != "Heavy":
+		errors.append("heavy strength is %s" % p1.attack_strength_name())
+	p1.start_move("5LP")
+	if p1.attack_strength_name() != "Light":
+		errors.append("light strength is %s" % p1.attack_strength_name())
+	var hud = fight.get_node_or_null("HUD")
+	if hud == null or hud.p1_percent == null or hud.p1_percent.text.find("%") < 0:
+		errors.append("health percent missing")
 
 	p1.full_reset(-10.0 * scale, floor_y)
 	p2.full_reset(58.0 * scale, floor_y)
@@ -143,6 +159,88 @@ func _run() -> void:
 	var second := await _replay(fight, p1, p2)
 	if first != second:
 		errors.append("scripted inputs diverged %s vs %s" % [first, second])
+
+	p1.full_reset(-16.0 * scale, floor_y)
+	p2.full_reset(52.0 * scale, floor_y)
+	p1.facing = 1
+	p2.facing = -1
+	p1.locked = false
+	p2.locked = false
+	p1.opponent = p2
+	p2.opponent = p1
+	var medium := {"dir": Vector2i.ZERO, "pressed": {"lp": false, "mp": true, "hp": false, "lk": false, "mk": false, "hk": false}}
+	p1.forced_sample = medium
+	p2.forced_sample = _sample(Vector2i.ZERO)
+	p1.start_move("5LP")
+	var chained := false
+	for _i in 24:
+		p1.forced_sample = medium
+		await physics_frame
+		if p1.attack_move != null and p1.attack_move.move_name == "5MP":
+			chained = true
+	if not chained:
+		var got: String = p1.attack_move.move_name if p1.attack_move != null else p1.machine.state_name()
+		errors.append("light punch did not chain into medium, now %s" % got)
+
+	p2.forced_sample = {"dir": Vector2i(1, 0), "pressed": {"lp": false, "mp": false, "hp": false, "lk": false, "mk": false, "hk": false}}
+	p2.facing = -1
+	p2.locked = false
+	p2.machine.change_state("Idle")
+	await physics_frame
+	if p2.machine.state_name() != "Block":
+		errors.append("holding back stayed in %s" % p2.machine.state_name())
+	p2.pose_block(false, 2)
+	if not p2.anim.has_clip("block") and absf(p2.anim_rotation) < 0.05:
+		errors.append("block stance has no guard pose")
+
+	p1.pose_attack(p1.data.get_move("5LK"), 5)
+	if not p1.data.uses_weapon:
+		errors.append("Martial Hero should use a weapon")
+	elif p1.anim.has_clip("kick"):
+		if p1.anim.clip_name != "kick":
+			errors.append("kick clip is %s" % p1.anim.clip_name)
+	elif absf(p1.anim_rotation) < 0.05 or p1.anim.clip_name in ["attack", "attack_light", "attack_heavy"]:
+		errors.append("weapon kick still plays %s" % p1.anim.clip_name)
+	p1.pose_attack(p1.data.get_move("5LP"), 4)
+	var punch_clip := "attack_light" if p1.anim.has_clip("attack_light") else "attack"
+	if p1.anim.clip_name != punch_clip:
+		errors.append("weapon punch clip is %s" % p1.anim.clip_name)
+
+	var settings = load("res://Scenes/Settings.tscn").instantiate()
+	root.add_child(settings)
+	await process_frame
+	settings.queue_free()
+	var moves = load("res://Scenes/MoveList.tscn").instantiate()
+	root.add_child(moves)
+	await process_frame
+	if moves.list.get_child_count() < 4:
+		errors.append("move list did not fill")
+	moves.queue_free()
+	var binds_copy: Dictionary = gm.keyboard_binds.duplicate(true)
+	var order_copy: Array[String] = gm.button_order.duplicate()
+	var debug_copy: bool = gm.debug
+	var tally_copy := [gm.local_p1_wins, gm.local_p2_wins, gm.online_wins, gm.online_losses]
+	gm.set_key_bind("p1_hk", 0, KEY_Y)
+	gm.move_button_order(0, 1)
+	var saved_key: String = gm.key_text("p1_hk", 0)
+	var saved_order: Array[String] = gm.button_order.duplicate()
+	gm.keyboard_binds["p1_hk"] = [KEY_A]
+	var neutral_order: Array[String] = ["hp", "mp", "lp", "hk", "mk", "lk"]
+	gm.button_order = neutral_order
+	gm.load_settings()
+	if gm.key_text("p1_hk", 0) != saved_key:
+		errors.append("saved keybind did not load")
+	if gm.button_order != saved_order:
+		errors.append("saved combo order did not load")
+	gm.keyboard_binds = binds_copy
+	gm.button_order = order_copy
+	gm.debug = debug_copy
+	gm.local_p1_wins = tally_copy[0]
+	gm.local_p2_wins = tally_copy[1]
+	gm.online_wins = tally_copy[2]
+	gm.online_losses = tally_copy[3]
+	gm.apply_keyboard_binds()
+	gm.save_settings()
 
 	_check_clips(p1, "Martial Hero", errors)
 	_check_clips(p2, "Heavy Bandit", errors)

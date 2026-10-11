@@ -10,10 +10,15 @@ var p2_shown := 1.0
 var timer_label: Label
 var announce_label: Label
 var combo_label: Label
+var p1_combo: Label
+var p2_combo: Label
 var rounds_label: Label
 var debug_label: Label
 var p1_name: Label
 var p2_name: Label
+var p1_percent: Label
+var p2_percent: Label
+var scoreboard: Label
 
 const BAR_W := 460.0
 const BAR_H := 22.0
@@ -34,9 +39,22 @@ func setup(a, b) -> void:
 	p2_name = _label(root, p2.data.character_name.to_upper(), 960, 28, 280, 28, HORIZONTAL_ALIGNMENT_RIGHT)
 	timer_label = _label(root, "99", 590, 22, 100, 48, HORIZONTAL_ALIGNMENT_CENTER)
 	timer_label.add_theme_font_size_override("font_size", 40)
-	rounds_label = _label(root, "", 440, 96, 400, 24, HORIZONTAL_ALIGNMENT_CENTER)
+	rounds_label = _label(root, "", 340, 96, 600, 24, HORIZONTAL_ALIGNMENT_CENTER)
+	p1_percent = _label(root, "100%", 36, 72, BAR_W, BAR_H, HORIZONTAL_ALIGNMENT_CENTER)
+	p2_percent = _label(root, "100%", 1280.0 - 36.0 - BAR_W, 72, BAR_W, BAR_H, HORIZONTAL_ALIGNMENT_CENTER)
+	p1_percent.add_theme_font_size_override("font_size", 16)
+	p2_percent.add_theme_font_size_override("font_size", 16)
+	scoreboard = _label(root, "", 200, 400, 880, 110, HORIZONTAL_ALIGNMENT_CENTER)
+	scoreboard.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	scoreboard.add_theme_font_size_override("font_size", 22)
 	combo_label = _label(root, "", 490, 250, 300, 48, HORIZONTAL_ALIGNMENT_CENTER)
 	combo_label.add_theme_font_size_override("font_size", 36)
+	p1_combo = _label(root, "", 40, 118, 280, 42, HORIZONTAL_ALIGNMENT_LEFT)
+	p2_combo = _label(root, "", 960, 118, 280, 42, HORIZONTAL_ALIGNMENT_RIGHT)
+	p1_combo.add_theme_font_size_override("font_size", 32)
+	p2_combo.add_theme_font_size_override("font_size", 32)
+	p1_combo.add_theme_color_override("font_color", Color(1.0, 0.86, 0.28))
+	p2_combo.add_theme_color_override("font_color", Color(1.0, 0.86, 0.28))
 	announce_label = _label(root, "", 240, 300, 800, 90, HORIZONTAL_ALIGNMENT_CENTER)
 	announce_label.add_theme_font_size_override("font_size", 64)
 	debug_label = _label(root, "", 24, 640, 900, 24, HORIZONTAL_ALIGNMENT_LEFT)
@@ -92,7 +110,31 @@ func announce(text: String) -> void:
 func refresh_rounds() -> void:
 	if rounds_label == null:
 		return
-	rounds_label.text = "P1 %s    P2 %s" % [_pips(GameManager.p1_rounds), _pips(GameManager.p2_rounds)]
+	rounds_label.text = "P1 %d %s    %s %d P2" % [GameManager.p1_rounds, _pips(GameManager.p1_rounds), _pips(GameManager.p2_rounds), GameManager.p2_rounds]
+
+
+func show_scoreboard(headline: String) -> void:
+	if scoreboard == null:
+		return
+	var rounds := "ROUNDS  %d - %d" % [GameManager.p1_rounds, GameManager.p2_rounds]
+	var tally := GameManager.tally_text()
+	scoreboard.text = "%s\n%s\n%s" % [headline, rounds, tally]
+
+
+func clear_scoreboard() -> void:
+	if scoreboard:
+		scoreboard.text = ""
+
+
+func _show_combo(label: Label, hits: int) -> void:
+	if label == null:
+		return
+	if hits <= 0:
+		label.text = ""
+	elif hits == 1:
+		label.text = "1 HIT"
+	else:
+		label.text = "%d HITS" % hits
 
 
 func _pips(count: int) -> String:
@@ -117,9 +159,14 @@ func _process(_delta: float) -> void:
 	p1_fill.size.x = BAR_W * p1_shown
 	p2_fill.size.x = BAR_W * p2_shown
 	p2_fill.position.x = 1280.0 - 36.0 - p2_fill.size.x
-	var hits := maxi(p1.combo_count, p2.combo_count)
-	combo_label.text = "%d HITS" % hits if hits >= 2 else ""
+	if p1_percent:
+		p1_percent.text = "%d%%" % int(round(p1_shown * 100.0))
+	if p2_percent:
+		p2_percent.text = "%d%%" % int(round(p2_shown * 100.0))
+	_show_combo(p1_combo, p1.combo_count)
+	_show_combo(p2_combo, p2.combo_count)
+	combo_label.text = ""
 	if GameManager.debug:
-		debug_label.text = "HITBOXES ON    P1 %s  P2 %s  combo %d/%d" % [p1.machine.state_name(), p2.machine.state_name(), p1.combo_count, p2.combo_count]
+		debug_label.text = "HITBOXES ON"
 	else:
 		debug_label.text = ""

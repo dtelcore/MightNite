@@ -70,9 +70,9 @@ func pressed_within(buttons: Array, window: int = Constants.BUFFER_FRAMES) -> bo
 	return false
 
 
-func first_pressed(order: Array) -> String:
+func first_pressed(order: Array, window: int = Constants.BUFFER_FRAMES) -> String:
 	for button in order:
-		if pressed_within([button]):
+		if pressed_within([button], window):
 			return button
 	return ""
 
