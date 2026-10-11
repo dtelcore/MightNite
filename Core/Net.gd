@@ -67,6 +67,7 @@ var _local_kind := ""
 var _remote_ready := false
 var _pending_ice: Array = []
 var _link_msec := 0
+var _offer_msec := 0
 var _offer_sent := false
 var _last_signal_msec := 0
 var _heartbeat_msec := 0
@@ -649,8 +650,18 @@ func _open_peer() -> void:
 	_peer_token += 1
 	var token := _peer_token
 	_peer = WebRTCPeerConnection.new()
-	_desc_cb = _on_local_description.bind(token)
-	_ice_cb = _on_local_ice.bind(token)
+	var peer := _peer
+	# Lambdas keep the original signal arguments. Binding an extra token onto the
+	# WebRTC signals dropped the answer and the ICE candidates, so the select
+	# screen stayed on Connecting.
+	_desc_cb = func(kind: String, sdp: String) -> void:
+		if peer != _peer or token != _peer_token:
+			return
+		_on_local_description(kind, sdp)
+	_ice_cb = func(mid: String, index: int, candidate: String) -> void:
+		if peer != _peer or token != _peer_token or candidate == "":
+			return
+		_on_local_ice(mid, index, candidate)
 	_peer.session_description_created.connect(_desc_cb)
 	_peer.ice_candidate_created.connect(_ice_cb)
 	var err := _peer.initialize({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
@@ -712,6 +723,9 @@ func _service_handshake() -> void:
 		if _peer == null:
 			return
 	if local_slot == 1:
+		if _remote_sdp != "" and _local_sdp == "" and _offer_msec > 0 and Time.get_ticks_msec() - _offer_msec > 2000:
+			_remote_sdp = ""
+			_remote_ready = false
 		_broadcast({"kind": "hello", "from": client_id})
 		_resend_local()
 		return
@@ -733,8 +747,7 @@ func _maybe_restart_peer() -> bool:
 	var no_local := local_slot == 0 and _offer_sent and _local_sdp == "" and elapsed > 4000
 	var no_answer := local_slot == 0 and _local_sdp != "" and _remote_sdp == "" and elapsed > 12000
 	var guest_waiting := local_slot == 1 and _remote_sdp == "" and elapsed > 12000
-	var channel_stuck := _remote_sdp != "" and elapsed > 20000
-	if not failed and not no_local and not no_answer and not guest_waiting and not channel_stuck:
+	if not failed and not no_local and not no_answer and not guest_waiting:
 		return false
 	if _restart_msec != 0 and Time.get_ticks_msec() - _restart_msec < 12000:
 		return false
@@ -783,6 +796,7 @@ func _on_signal(data: Dictionary) -> void:
 		if offer == _remote_sdp:
 			return
 		_remote_sdp = offer
+		_offer_msec = Time.get_ticks_msec()
 		# Setting an offer makes the plugin emit the answer itself.
 		_peer.set_remote_description("offer", offer)
 		_flush_ice()
@@ -803,8 +817,8 @@ func _on_signal(data: Dictionary) -> void:
 		})
 
 
-func _on_local_description(kind: String, sdp: String, token: int) -> void:
-	if token != _peer_token or _peer == null:
+func _on_local_description(kind: String, sdp: String) -> void:
+	if _peer == null:
 		return
 	_peer.set_local_description(kind, sdp)
 	_local_kind = kind
@@ -812,8 +826,8 @@ func _on_local_description(kind: String, sdp: String, token: int) -> void:
 	_broadcast({"kind": kind, "sdp": sdp, "from": client_id})
 
 
-func _on_local_ice(mid: String, index: int, candidate: String, token: int) -> void:
-	if token != _peer_token or _peer == null or candidate == "":
+func _on_local_ice(mid: String, index: int, candidate: String) -> void:
+	if _peer == null or candidate == "":
 		return
 	var data := {"kind": "ice", "mid": mid, "index": index, "candidate": candidate, "from": client_id}
 	_gathered_ice.append(data)
@@ -1105,10 +1119,7 @@ func _send_raw(buf: PackedByteArray) -> void:
 
 func _close_peer_only() -> void:
 	_channel_open = false
-	if _channel != null:
-		if _channel.get_ready_state() != WebRTCDataChannel.STATE_CLOSED:
-			_channel.close()
-		_channel = null
+	_channel = null
 	var peer := _peer
 	_peer = null
 	if peer != null:
@@ -1123,6 +1134,7 @@ func _close_peer_only() -> void:
 	_local_kind = ""
 	_remote_ready = false
 	_remote_sdp = ""
+	_offer_msec = 0
 	_pending_ice.clear()
 	_local_ice.clear()
 	_gathered_ice.clear()
