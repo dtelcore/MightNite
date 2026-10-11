@@ -87,6 +87,10 @@ var _peer_acked := false
 var _desync_sent := false
 var _remote_sdp := ""
 var _local_ice: Array = []
+var _gathered_ice: Array = []
+var _seen_remote_ice := {}
+var _link_gen := 1
+var _restart_msec := 0
 
 
 func _ready() -> void:
@@ -585,10 +589,13 @@ func _ws_send(join_ref, ref_id, topic: String, event: String, payload: Dictionar
 
 
 func _broadcast(data: Dictionary) -> void:
+	var outgoing := data.duplicate()
+	if _text(outgoing.get("kind")) != "hello":
+		outgoing["gen"] = _link_gen
 	_ws_send(_join_ref, _next_ref(), _topic(), "broadcast", {
 		"type": "broadcast",
 		"event": "signal",
-		"payload": data,
+		"payload": outgoing,
 	})
 
 
@@ -634,9 +641,11 @@ func link_status() -> String:
 		return "Could not open a direct link"
 	if _channel_open:
 		return "Link open, syncing"
-	if notice.begins_with("Still trying"):
-		return notice
-	return "Opening link..."
+	if not socket_ready:
+		return "Joining the room channel"
+	if _remote_sdp == "":
+		return "Waiting for the other PC"
+	return "Connecting"
 
 
 func _service_handshake() -> void:
@@ -646,24 +655,49 @@ func _service_handshake() -> void:
 				_last_signal_msec = Time.get_ticks_msec()
 				_send_delay(input_delay)
 		return
-	if _link_msec > 0 and Time.get_ticks_msec() - _link_msec > 15000:
-		_set_notice("Still trying to open a direct link")
 	if _text(room.get("guest_id")) == "" or not socket_ready:
 		return
+	var restarted := local_slot == 0 and _maybe_restart_peer()
 	var now := Time.get_ticks_msec()
-	if now - _last_signal_msec < 2000:
+	if not restarted and now - _last_signal_msec < 2000:
 		return
 	_last_signal_msec = now
 	if local_slot == 1:
 		_broadcast({"kind": "hello", "from": client_id})
-		if _local_sdp != "":
-			_broadcast({"kind": _local_kind, "sdp": _local_sdp, "from": client_id})
+		_resend_local()
 		return
 	if _peer != null and not _offer_sent:
 		_offer_sent = true
-		_peer.create_offer()
-	elif _local_sdp != "":
-		_broadcast({"kind": _local_kind, "sdp": _local_sdp, "from": client_id})
+		if _peer.create_offer() != OK:
+			_offer_sent = false
+	else:
+		_resend_local()
+
+
+func _maybe_restart_peer() -> bool:
+	if _peer == null or _local_sdp == "":
+		return false
+	var failed := _peer.get_connection_state() == WebRTCPeerConnection.STATE_FAILED
+	var no_answer := _remote_sdp == "" and _link_msec > 0 and Time.get_ticks_msec() - _link_msec > 12000
+	if not failed and not no_answer:
+		return false
+	if _restart_msec != 0 and Time.get_ticks_msec() - _restart_msec < 12000:
+		return false
+	_restart_msec = Time.get_ticks_msec()
+	_link_msec = _restart_msec
+	_link_gen += 1
+	_close_peer_only()
+	_open_peer()
+	_set_notice("Retrying the link")
+	return true
+
+
+func _resend_local() -> void:
+	if _local_sdp == "":
+		return
+	_broadcast({"kind": _local_kind, "sdp": _local_sdp, "from": client_id})
+	for ice in _gathered_ice:
+		_broadcast(ice)
 
 
 func _on_signal(data: Dictionary) -> void:
@@ -671,9 +705,20 @@ func _on_signal(data: Dictionary) -> void:
 		return
 	var kind := _text(data.get("kind"))
 	if kind == "hello":
-		if local_slot == 0 and _peer != null and not _offer_sent:
-			_offer_sent = true
-			_peer.create_offer()
+		if local_slot == 0 and _peer != null:
+			if not _offer_sent:
+				_offer_sent = true
+				if _peer.create_offer() != OK:
+					_offer_sent = false
+			else:
+				_resend_local()
+		return
+	var gen := int(data.get("gen", _link_gen))
+	if gen > _link_gen:
+		_link_gen = gen
+		_close_peer_only()
+		_open_peer()
+	elif gen != _link_gen:
 		return
 	if _peer == null:
 		return
@@ -695,11 +740,11 @@ func _on_signal(data: Dictionary) -> void:
 		_flush_ice()
 		return
 	if kind == "ice":
-		var ice := {"mid": _text(data.get("mid")), "index": int(data.get("index", 0)), "candidate": _text(data.get("candidate"))}
-		if _remote_ready:
-			_peer.add_ice_candidate(ice["mid"], ice["index"], ice["candidate"])
-		else:
-			_pending_ice.append(ice)
+		_queue_remote_ice({
+			"mid": _text(data.get("mid")),
+			"index": int(data.get("index", 0)),
+			"candidate": _text(data.get("candidate")),
+		})
 
 
 func _on_local_description(kind: String, sdp: String) -> void:
@@ -711,11 +756,27 @@ func _on_local_description(kind: String, sdp: String) -> void:
 
 
 func _on_local_ice(mid: String, index: int, candidate: String) -> void:
+	if candidate == "":
+		return
 	var data := {"kind": "ice", "mid": mid, "index": index, "candidate": candidate, "from": client_id}
+	_gathered_ice.append(data)
 	if socket_ready:
 		_broadcast(data)
 	else:
 		_local_ice.append(data)
+
+
+func _queue_remote_ice(ice: Dictionary) -> void:
+	if _text(ice.get("candidate")) == "" or _peer == null:
+		return
+	var key := _text(ice.get("mid")) + "|" + _text(ice.get("candidate"))
+	if _seen_remote_ice.has(key):
+		return
+	_seen_remote_ice[key] = true
+	if _remote_ready:
+		_peer.add_ice_candidate(_text(ice.get("mid")), int(ice.get("index", 0)), _text(ice.get("candidate")))
+	else:
+		_pending_ice.append(ice)
 
 
 func _flush_ice() -> void:
@@ -981,20 +1042,30 @@ func _send_raw(buf: PackedByteArray) -> void:
 	_channel.put_packet(buf)
 
 
-func _shutdown_link() -> void:
+func _close_peer_only() -> void:
 	_channel = null
 	_channel_open = false
-	_peer = null
+	if _peer != null:
+		_peer.close()
+		_peer = null
 	_local_sdp = ""
 	_local_kind = ""
 	_remote_ready = false
+	_remote_sdp = ""
 	_pending_ice.clear()
-	_link_msec = 0
+	_local_ice.clear()
+	_gathered_ice.clear()
+	_seen_remote_ice.clear()
 	_offer_sent = false
+
+
+func _shutdown_link() -> void:
+	_close_peer_only()
+	_link_msec = 0
+	_link_gen = 1
+	_restart_msec = 0
 	_join_ref = ""
 	socket_ready = false
-	_remote_sdp = ""
-	_local_ice.clear()
 	_desync_sent = false
 	if _ws != null:
 		_ws.close()
