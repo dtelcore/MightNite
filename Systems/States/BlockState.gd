@@ -13,9 +13,7 @@ func enter(data: Dictionary = {}) -> void:
 	if fighter.crouch_block:
 		fighter.pose_crouch()
 	else:
-		fighter.anim_offset = Vector2(-12, 0)
-		fighter.anim_rotation = 0.1
-		fighter.anim_scale = Vector2(0.96, 1.0)
+		fighter.pose_block()
 	if attacker != null and move != null:
 		fighter.velocity.x = attacker.facing * move.knockback.x * 0.42
 	fighter.disable_hitbox()

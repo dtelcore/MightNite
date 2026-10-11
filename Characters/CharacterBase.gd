@@ -24,14 +24,13 @@ var anim_offset := Vector2.ZERO
 var anim_rotation := 0.0
 var anim_scale := Vector2.ONE
 var flash := 0
-var sprite_base_scale := 0.25
-var foot_span := 120.0
+var walk_phase := 0.0
 var forced_sample: Dictionary = {}
 
 var hp: HealthSystem
 var buffer: InputBuffer
 var machine: StateMachine
-var sprite: Sprite2D
+var rig: FighterRig
 var hurtbox: Area2D
 var hitbox: Area2D
 var hit_shape: CollisionShape2D
@@ -55,12 +54,10 @@ func _ready() -> void:
 	add_child(hp)
 	hp.setup(data.max_health)
 
-	sprite = Sprite2D.new()
-	sprite.name = "Sprite"
-	sprite.texture = data.sprite
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	add_child(sprite)
-	_align_sprite()
+	rig = FighterRig.new()
+	rig.name = "Rig"
+	add_child(rig)
+	rig.setup(data.sprite, data.character_name, data.body_height)
 
 	var body_shape := CollisionShape2D.new()
 	var body := RectangleShape2D.new()
@@ -137,39 +134,6 @@ func _apply_layers() -> void:
 		hitbox.collision_mask = Constants.LAYER_P1_HURT
 
 
-func _align_sprite() -> void:
-	if data.sprite == null:
-		foot_span = data.body_height * 0.5
-		return
-	var tex_h := float(data.sprite.get_height())
-	var tex_w := float(data.sprite.get_width())
-	sprite_base_scale = data.body_height / tex_h
-	var foot_y := tex_h * 0.96
-	var min_x := tex_w * 0.08
-	var max_x := tex_w * 0.92
-	var img := data.sprite.get_image()
-	if img != null:
-		var found := false
-		for y in range(img.get_height() - 1, -1, -1):
-			for x in range(0, img.get_width(), 3):
-				if img.get_pixel(x, y).a > 0.12:
-					foot_y = float(y)
-					found = true
-					break
-			if found:
-				break
-		min_x = tex_w
-		max_x = 0.0
-		for y in range(0, img.get_height(), 2):
-			for x in range(0, img.get_width(), 2):
-				if img.get_pixel(x, y).a > 0.12:
-					min_x = minf(min_x, float(x))
-					max_x = maxf(max_x, float(x))
-	sprite.centered = true
-	sprite.offset = Vector2(tex_w * 0.5 - (min_x + max_x) * 0.5, 0)
-	foot_span = (foot_y - tex_h * 0.5) * sprite_base_scale
-
-
 func _physics_process(delta: float) -> void:
 	if GameManager.is_frozen():
 		_update_visual()
@@ -223,17 +187,14 @@ func _clamp_stage() -> void:
 
 
 func _update_visual() -> void:
-	if sprite == null:
+	if rig == null:
 		return
-	sprite.flip_h = facing < 0
-	sprite.scale = Vector2(sprite_base_scale * anim_scale.x, sprite_base_scale * anim_scale.y)
-	sprite.rotation = anim_rotation * float(facing)
-	sprite.position = Vector2(anim_offset.x * float(facing), -foot_span * anim_scale.y + anim_offset.y)
+	rig.apply_facing(facing)
 	if flash > 0:
-		sprite.modulate = Color(1.6, 0.7, 0.7)
+		rig.modulate = Color(1.6, 0.7, 0.7)
 		flash -= 1
 	else:
-		sprite.modulate = Color.WHITE
+		rig.modulate = Color.WHITE
 
 
 func _draw() -> void:
@@ -294,6 +255,9 @@ func reset_pose() -> void:
 	anim_offset = Vector2.ZERO
 	anim_rotation = 0.0
 	anim_scale = Vector2.ONE
+	walk_phase = 0.0
+	if rig:
+		rig.pose_idle()
 
 
 func desired_move() -> String:
@@ -483,21 +447,28 @@ func pose_idle() -> void:
 	reset_pose()
 
 
-func pose_walk(back: bool) -> void:
-	var bob := sin(float(Time.get_ticks_msec()) / 90.0) * 4.0
-	anim_offset = Vector2(-6.0 if back else 4.0, bob)
-	anim_rotation = 0.06 if back else -0.05
-	anim_scale = Vector2.ONE
+func pose_walk(phase: float, _back: bool) -> void:
+	if rig:
+		rig.pose_walk(phase)
 
 
 func pose_crouch() -> void:
-	anim_offset = Vector2.ZERO
-	anim_rotation = 0.0
-	anim_scale = Vector2(1.08, 0.72)
+	if rig:
+		rig.pose_squat(1.0)
+
+
+func pose_squat(amount: float) -> void:
+	if rig:
+		rig.pose_squat(amount)
+
+
+func pose_jump(amount: float) -> void:
+	if rig:
+		rig.pose_jump(amount)
 
 
 func pose_attack(move: MoveData, frame: int) -> void:
-	if move == null:
+	if move == null or rig == null:
 		return
 	var peak := maxi(move.startup, 1)
 	var weight := 1.0
@@ -507,14 +478,52 @@ func pose_attack(move: MoveData, frame: int) -> void:
 		var recovery := maxi(move.recovery, 1)
 		var into := frame - (move.startup + move.active)
 		weight = 1.0 - float(into) / float(recovery)
-	weight = clampf(weight, 0.0, 1.0)
-	anim_offset = move.sprite_offset * weight
-	anim_rotation = move.sprite_rotation * weight
-	anim_scale = Vector2.ONE
-	if move.input.begins_with("2"):
-		anim_scale.y = lerpf(1.0, 0.72, weight)
-	elif move.launch_force > 0.0:
-		anim_scale.y = lerpf(1.0, 1.15, weight)
+	rig.pose_attack(move.move_name, clampf(weight, 0.0, 1.0))
+
+
+func pose_hit() -> void:
+	if rig:
+		rig.pose_react(0.28, Vector2(-10, 0), 0.15)
+
+
+func pose_block() -> void:
+	if rig:
+		rig.pose_react(0.1, Vector2(-12, 0), 0.0)
+
+
+func pose_knockdown() -> void:
+	if rig:
+		rig.pose_react(1.25, Vector2(0, 12), 0.55)
+
+
+func pose_getup(t: float) -> void:
+	if rig == null:
+		return
+	rig.pose_react(lerpf(1.15, 0.0, t), Vector2.ZERO, lerpf(0.5, 0.0, t))
+
+
+func pose_dash(back: bool) -> void:
+	if rig == null:
+		return
+	if back:
+		rig.pose_react(0.12, Vector2(-10, 0), 0.1)
+		rig.rear_hip.rotation = 0.28
+	else:
+		rig.pose_react(-0.14, Vector2(14, 0), 0.0)
+		rig.lead_hip.rotation = -0.32
+		rig.lead_knee.rotation = 0.35
+
+
+func pose_throw(heavy: bool) -> void:
+	if rig == null:
+		return
+	rig.pose_attack("236236P" if heavy else "throw", 1.0)
+	rig.lean(0.32 if heavy else 0.18, Vector2(20, 0))
+
+
+func pose_thrown(wobble: float) -> void:
+	if rig:
+		rig.pose_react(wobble, Vector2.ZERO, 0.3)
 
 
 func full_reset(x: float, floor_y: float) -> void:

@@ -12,7 +12,9 @@ func enter(data: Dictionary = {}) -> void:
 func physics_update(delta: float) -> void:
 	fighter.face_opponent()
 	back = fighter.buffer.relative_held().x < 0
-	fighter.pose_walk(back)
+	var cycle: float = 0.64 if back else 0.5
+	fighter.walk_phase += delta / cycle
+	fighter.pose_walk(fighter.walk_phase, back)
 	if fighter.locked:
 		fighter.machine.change_state("Idle")
 		return

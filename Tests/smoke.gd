@@ -100,7 +100,62 @@ func _run() -> void:
 			spawned = true
 	if not spawned:
 		errors.append("fireball did not spawn")
+
+	_check_rig(p1, "Ryuji", errors)
+	_check_rig(p2, "Titan", errors)
 	_finish(errors)
+
+
+func _check_rig(fighter, who: String, errors: Array[String]) -> void:
+	var rig = fighter.rig
+	if rig == null or rig.lead_shoulder == null or rig.lead_knee == null:
+		errors.append("%s rig missing" % who)
+		return
+	if rig.get_child_count() < 3:
+		errors.append("%s rig has no parts" % who)
+		return
+	fighter.pose_walk(0.15, false)
+	if fighter.rig.lead_knee.rotation < 0.4:
+		errors.append("%s walk did not lift the lead knee" % who)
+	if fighter.rig.lead_shoulder.rotation > -0.05 or fighter.rig.rear_hip.rotation > -0.05:
+		errors.append("%s walk did not swing the opposite limbs" % who)
+	fighter.pose_squat(1.0)
+	if fighter.rig.lead_knee.rotation < 0.5 or fighter.rig.rear_knee.rotation > -0.5:
+		errors.append("%s squat did not bend both knees" % who)
+	fighter.pose_jump(1.0)
+	if fighter.rig.lead_knee.rotation >= 0.0 or fighter.rig.rear_knee.rotation <= 0.0:
+		errors.append("%s jump did not straighten the legs" % who)
+	fighter.pose_attack(fighter.data.get_move("5LP"), 8)
+	if fighter.rig.lead_shoulder.rotation >= -0.3:
+		errors.append("%s punch did not extend the lead arm" % who)
+	fighter.pose_attack(fighter.data.get_move("5HP"), 12)
+	if fighter.rig.rear_shoulder.rotation >= -0.3:
+		errors.append("%s heavy punch did not swing the rear arm" % who)
+	fighter.pose_attack(fighter.data.get_move("5LK"), 2)
+	if fighter.rig.lead_knee.rotation < 0.15:
+		errors.append("%s kick did not bend the lead knee" % who)
+	fighter.pose_attack(fighter.data.get_move("5LK"), 14)
+	if fighter.rig.lead_hip.rotation >= -0.2:
+		errors.append("%s kick did not swing the lead leg" % who)
+	fighter.rig.pose_attack("2LP", 1.0)
+	if fighter.rig.rear_knee.rotation > -0.4 or fighter.rig.lead_shoulder.rotation >= -0.3:
+		errors.append("%s crouch punch did not keep the squat and swing the lead arm" % who)
+	fighter.rig.pose_attack("jLK", 1.0)
+	if fighter.rig.rear_knee.rotation <= 0.0 or fighter.rig.lead_hip.rotation >= -0.2:
+		errors.append("%s air kick did not keep one leg straight and extend the other" % who)
+	fighter.rig.pose_attack("236P", 1.0)
+	if fighter.rig.lead_shoulder.rotation >= -0.5 or fighter.rig.rear_knee.rotation < -0.2:
+		errors.append("%s fireball crouched or did not thrust the lead arm" % who)
+	fighter.rig.pose_attack("623P", 1.0)
+	if fighter.rig.lead_shoulder.rotation >= -0.8:
+		errors.append("%s uppercut did not raise the lead arm" % who)
+	fighter.rig.pose_attack("6HK", 0.5)
+	if fighter.rig.rear_hip.rotation >= -0.4:
+		errors.append("%s heavy kick did not swing the rear leg" % who)
+	fighter.rig.pose_attack("throw", 1.0)
+	if fighter.rig.lead_shoulder.rotation >= -0.4 or fighter.rig.rear_shoulder.rotation >= -0.3:
+		errors.append("%s throw did not reach with both arms" % who)
+	fighter.pose_idle()
 
 
 func _finish(errors: Array[String]) -> void:

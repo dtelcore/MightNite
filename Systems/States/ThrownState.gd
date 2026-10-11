@@ -18,8 +18,7 @@ func physics_update(_delta: float) -> void:
 	if attacker != null and is_instance_valid(attacker):
 		fighter.global_position = attacker.global_position + Vector2(attacker.facing * 52.0, 0.0)
 		fighter.facing = -attacker.facing
-	fighter.anim_rotation = sin(float(frames) * 0.45) * 0.35
-	fighter.anim_scale = Vector2(1.06, 0.9)
+	fighter.pose_thrown(sin(float(frames) * 0.45) * 0.35)
 
 
 func exit(_next: String = "") -> void:

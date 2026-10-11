@@ -29,9 +29,7 @@ func enter(data: Dictionary = {}) -> void:
 
 func physics_update(delta: float) -> void:
 	frames += 1
-	fighter.anim_rotation = 0.28
-	fighter.anim_offset = Vector2(-10, 0)
-	fighter.anim_scale = Vector2(1.04, 0.96)
+	fighter.pose_hit()
 	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 420.0 * delta)
 	var stun := move.hitstun if move != null else 12
 	if launched and frames > 5 and fighter.is_on_floor() and fighter.velocity.y >= 0.0:

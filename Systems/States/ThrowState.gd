@@ -16,8 +16,8 @@ func enter(data: Dictionary = {}) -> void:
 
 func physics_update(_delta: float) -> void:
 	frames += 1
-	fighter.anim_offset = Vector2(20, 0)
-	fighter.anim_rotation = 0.18 if move == null or not move.is_command_grab else 0.32
+	var heavy: bool = move != null and move.is_command_grab
+	fighter.pose_throw(heavy)
 	if frames == 20 and victim != null and is_instance_valid(victim):
 		victim.motion_locked = false
 		victim.invulnerable = false

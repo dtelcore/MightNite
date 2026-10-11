@@ -17,8 +17,7 @@ func physics_update(_delta: float) -> void:
 	var speed: float = fighter.data.dash_speed
 	var dir: int = -fighter.facing if back else fighter.facing
 	fighter.velocity.x = dir * speed
-	fighter.anim_offset = Vector2(-10 if back else 14, 0)
-	fighter.anim_rotation = 0.12 if back else -0.14
+	fighter.pose_dash(back)
 	if back and frames > 8:
 		fighter.invulnerable = false
 	if not back and frames > 3 and not fighter.locked and fighter.try_offense():
