@@ -21,7 +21,7 @@ func physics_update(_delta: float) -> void:
 	if frames == 20 and victim != null and is_instance_valid(victim):
 		victim.motion_locked = false
 		victim.invulnerable = false
-		victim.velocity = Vector2(fighter.facing * 520.0, -640.0)
+		victim.velocity = Vector2(fighter.facing * 520.0 * Constants.WORLD_SCALE, -640.0 * Constants.WORLD_SCALE)
 		victim.machine.change_state("Knockdown")
 	if frames >= 32:
 		fighter.machine.change_state("Idle")

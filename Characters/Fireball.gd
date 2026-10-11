@@ -22,7 +22,7 @@ func setup(fighter, fired_move: MoveData) -> void:
 		collision_mask = Constants.LAYER_P1_HURT
 	var shape_node := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 22.0
+	shape.radius = 22.0 * Constants.WORLD_SCALE
 	shape_node.shape = shape
 	add_child(shape_node)
 	area_entered.connect(_on_area_entered)
@@ -31,7 +31,7 @@ func setup(fighter, fired_move: MoveData) -> void:
 func _physics_process(_delta: float) -> void:
 	if GameManager.is_frozen():
 		return
-	position.x += 13.5 * float(facing)
+	position.x += 13.5 * Constants.WORLD_SCALE * float(facing)
 	life -= 1
 	queue_redraw()
 	var stages := get_tree().get_nodes_in_group("stage")
@@ -53,5 +53,6 @@ func _on_area_entered(area: Area2D) -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, 20, Color(1.0, 0.38, 0.1, 0.95))
-	draw_circle(Vector2(-10.0 * float(facing), 0), 11, Color(1.0, 0.86, 0.45, 0.95))
+	var s := Constants.WORLD_SCALE
+	draw_circle(Vector2.ZERO, 20.0 * s, Color(1.0, 0.38, 0.1, 0.95))
+	draw_circle(Vector2(-10.0 * s * float(facing), 0), 11.0 * s, Color(1.0, 0.86, 0.45, 0.95))

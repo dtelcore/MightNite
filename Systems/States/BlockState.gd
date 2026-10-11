@@ -15,13 +15,13 @@ func enter(data: Dictionary = {}) -> void:
 	else:
 		fighter.pose_block()
 	if attacker != null and move != null:
-		fighter.velocity.x = attacker.facing * move.knockback.x * 0.42
+		fighter.velocity.x = attacker.facing * move.knockback.x * 0.42 * Constants.WORLD_SCALE
 	fighter.disable_hitbox()
 
 
 func physics_update(delta: float) -> void:
 	frames += 1
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 900.0 * delta)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 900.0 * Constants.WORLD_SCALE * delta)
 	var stun := move.blockstun if move != null else 8
 	if frames >= stun:
 		if fighter.holding_down():

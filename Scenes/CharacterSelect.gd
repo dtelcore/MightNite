@@ -3,18 +3,18 @@ extends Control
 var characters: Array = []
 var stages: Array = []
 var p1_index := 0
-var p2_index := 1
+var p2_index := 2
 var stage_index := 0
 var p1_panels: Array = []
-var p2_panels: Array = []
 var stage_panels: Array = []
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	characters = [
-		load("res://Characters/Ryuji/Ryuji.tres"),
-		load("res://Characters/Titan/Titan.tres"),
+		load("res://Characters/MartialHero/MartialHero.tres"),
+		load("res://Characters/LightBandit/LightBandit.tres"),
+		load("res://Characters/HeavyBandit/HeavyBandit.tres"),
 	]
 	stages = [
 		load("res://Stages/dojo.tres"),
@@ -36,8 +36,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 32)
 	add_child(title)
 
-	_side(0, "P1", 80)
-	_side(1, "P2", 700)
+	_roster()
 	_stage_row()
 
 	var start := Button.new()
@@ -47,7 +46,7 @@ func _ready() -> void:
 	start.pressed.connect(_start)
 	add_child(start)
 	var hint := Label.new()
-	hint.text = "P1 A/D    P2 Left/Right    Stage Q/E    Enter start    Esc back"
+	hint.text = "P1 A/D or click    P2 arrows or right click    Stage Q/E    Enter start"
 	hint.position = Vector2(240, 600)
 	hint.size = Vector2(800, 28)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -55,18 +54,22 @@ func _ready() -> void:
 	_refresh()
 
 
-func _side(player: int, caption: String, x: float) -> void:
+func _roster() -> void:
 	var label := Label.new()
-	label.text = caption
-	label.position = Vector2(x, 78)
-	label.size = Vector2(480, 28)
+	label.text = "P1 RED    P2 BLUE"
+	label.position = Vector2(340, 78)
+	label.size = Vector2(600, 28)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(label)
+	var panel_w := 200.0
+	var gap := 24.0
+	var total := float(characters.size()) * panel_w + float(characters.size() - 1) * gap
+	var x0 := (1280.0 - total) * 0.5
 	for i in characters.size():
 		var panel := Panel.new()
-		panel.position = Vector2(x + float(i) * 240.0, 116)
-		panel.size = Vector2(220, 280)
-		panel.gui_input.connect(_on_portrait.bind(player, i))
+		panel.position = Vector2(x0 + float(i) * (panel_w + gap), 112)
+		panel.size = Vector2(panel_w, 250)
+		panel.gui_input.connect(_on_portrait.bind(i))
 		var portrait := TextureRect.new()
 		portrait.set_anchors_preset(Control.PRESET_FULL_RECT)
 		portrait.offset_left = 8
@@ -75,21 +78,19 @@ func _side(player: int, caption: String, x: float) -> void:
 		portrait.offset_bottom = -36
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait.texture = _upper(characters[i].sprite)
+		portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		portrait.texture = _portrait(characters[i])
 		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		panel.add_child(portrait)
 		var name_label := Label.new()
 		name_label.text = characters[i].character_name.to_upper()
-		name_label.position = Vector2(0, 244)
-		name_label.size = Vector2(220, 28)
+		name_label.position = Vector2(0, 214)
+		name_label.size = Vector2(panel_w, 28)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		panel.add_child(name_label)
 		add_child(panel)
-		if player == 0:
-			p1_panels.append(panel)
-		else:
-			p2_panels.append(panel)
+		p1_panels.append(panel)
 
 
 func _stage_row() -> void:
@@ -125,22 +126,25 @@ func _stage_row() -> void:
 		stage_panels.append(panel)
 
 
-func _upper(texture: Texture2D) -> Texture2D:
-	if texture == null:
+func _portrait(data: CharacterData) -> Texture2D:
+	if data == null or data.sprite == null:
 		return null
 	var atlas := AtlasTexture.new()
-	atlas.atlas = texture
-	atlas.region = Rect2(0, 0, texture.get_width(), texture.get_height() * 0.55)
+	atlas.atlas = data.sprite
+	atlas.region = Rect2(0, 0, data.frame_size.x, data.frame_size.y)
 	return atlas
 
 
-func _on_portrait(event: InputEvent, player: int, index: int) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if player == 0:
-			p1_index = index
-		else:
-			p2_index = index
-		_refresh()
+func _on_portrait(event: InputEvent, index: int) -> void:
+	if not (event is InputEventMouseButton) or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		p2_index = index
+	elif event.button_index == MOUSE_BUTTON_LEFT:
+		p1_index = index
+	else:
+		return
+	_refresh()
 
 
 func _on_stage(event: InputEvent, index: int) -> void:
@@ -151,9 +155,14 @@ func _on_stage(event: InputEvent, index: int) -> void:
 
 func _refresh() -> void:
 	for i in p1_panels.size():
-		_paint(p1_panels[i], i == p1_index, Color(0.9, 0.25, 0.2))
-	for i in p2_panels.size():
-		_paint(p2_panels[i], i == p2_index, Color(0.25, 0.5, 0.95))
+		var color := Color(1, 1, 1, 0.12)
+		if i == p1_index and i == p2_index:
+			color = Color(0.85, 0.45, 0.75)
+		elif i == p1_index:
+			color = Color(0.9, 0.25, 0.2)
+		elif i == p2_index:
+			color = Color(0.25, 0.5, 0.95)
+		_paint(p1_panels[i], i == p1_index or i == p2_index, color)
 	for i in stage_panels.size():
 		_paint(stage_panels[i], i == stage_index, Color(0.95, 0.8, 0.25))
 

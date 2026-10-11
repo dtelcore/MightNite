@@ -16,9 +16,9 @@ func enter(data: Dictionary = {}) -> void:
 	fighter.armor_active = false
 	fighter.motion_locked = false
 	fighter.disable_hitbox()
-	var lunge := 70.0 + float(move.damage) * 0.35
+	var lunge := (70.0 + float(move.damage) * 0.35) * Constants.WORLD_SCALE
 	if move.is_projectile:
-		lunge = 20.0
+		lunge = 20.0 * Constants.WORLD_SCALE
 	fighter.velocity.x = fighter.facing * lunge
 
 
@@ -40,7 +40,7 @@ func physics_update(_delta: float) -> void:
 	if fighter.machine.state_name() != "Attack":
 		return
 	fighter.pose_attack(move, frame)
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 18.0)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 18.0 * Constants.WORLD_SCALE)
 	if frame > active_end and fighter.try_cancel(move):
 		return
 	if frame >= move.startup + move.active + move.recovery:

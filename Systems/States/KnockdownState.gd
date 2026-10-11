@@ -14,7 +14,7 @@ func enter(_data: Dictionary = {}) -> void:
 func physics_update(delta: float) -> void:
 	frames += 1
 	fighter.pose_knockdown()
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 700.0 * delta)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 700.0 * Constants.WORLD_SCALE * delta)
 	if frames >= 40 and fighter.is_on_floor():
 		fighter.machine.change_state("Getup")
 

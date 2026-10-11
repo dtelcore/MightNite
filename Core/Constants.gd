@@ -7,7 +7,8 @@ const LAYER_P1_HIT := 4
 const LAYER_P2_HURT := 8
 const LAYER_P2_HIT := 16
 
-const GRAVITY := 1900.0
+const WORLD_SCALE := 152.0 / 320.0
+const GRAVITY := 1900.0 * WORLD_SCALE
 const FLOOR_Y := 220.0
 const BUFFER_FRAMES := 5
 

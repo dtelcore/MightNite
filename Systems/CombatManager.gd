@@ -18,20 +18,20 @@ func on_contact(world_pos: Vector2, facing: int, blocked: bool, move: MoveData) 
 	sparks.emitting = false
 	sparks.direction = Vector2(float(facing), -0.35)
 	sparks.spread = 38.0
-	sparks.initial_velocity_min = 80.0
-	sparks.initial_velocity_max = 240.0
-	sparks.gravity = Vector2(0, 460)
+	sparks.initial_velocity_min = 80.0 * Constants.WORLD_SCALE
+	sparks.initial_velocity_max = 240.0 * Constants.WORLD_SCALE
+	sparks.gravity = Vector2(0, 460.0 * Constants.WORLD_SCALE)
 	sparks.scale_amount_min = 2.5
 	sparks.scale_amount_max = 6.0
 	var heavy := move != null and (move.damage >= 80 or move.launch_force > 0.0)
 	var super_move := move != null and move.input == "236236P"
 	if blocked:
 		sparks.color = Color(0.62, 0.86, 1.0)
-		shake = maxf(shake, 3.5)
+		shake = maxf(shake, 3.5 * Constants.WORLD_SCALE)
 		GameManager.play_sfx("block")
 	else:
 		sparks.color = Color(1.0, 0.38, 0.14) if heavy else Color(1.0, 0.78, 0.32)
-		shake = maxf(shake, 18.0 if super_move else (9.0 if heavy else 5.0))
+		shake = maxf(shake, (18.0 if super_move else (9.0 if heavy else 5.0)) * Constants.WORLD_SCALE)
 		GameManager.play_sfx("hit" if not super_move else "super")
 	sparks.global_position = world_pos
 	sparks.z_index = 8

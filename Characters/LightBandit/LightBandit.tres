@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=25 format=3]
+
+[ext_resource type="Script" path="res://Resources/CharacterData.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/fighters/light_bandit/idle.png" id="2_tex"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5LP.tres" id="3_5LP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5MP.tres" id="4_5MP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5HP.tres" id="5_5HP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5LK.tres" id="6_5LK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5MK.tres" id="7_5MK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/5HK.tres" id="8_5HK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2LP.tres" id="9_2LP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2MP.tres" id="10_2MP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2HP.tres" id="11_2HP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2LK.tres" id="12_2LK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2MK.tres" id="13_2MK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/2HK.tres" id="14_2HK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jLP.tres" id="15_jLP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jMP.tres" id="16_jMP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jHP.tres" id="17_jHP"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jLK.tres" id="18_jLK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jMK.tres" id="19_jMK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/jHK.tres" id="20_jHK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/6HK.tres" id="21_6HK"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/623P.tres" id="22_623P"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/throw.tres" id="23_throw"]
+[ext_resource type="Resource" path="res://Characters/LightBandit/moves/236236P.tres" id="24_236236P"]
+
+[resource]
+script = ExtResource("1_script")
+character_name = "Light Bandit"
+max_health = 1000
+walk_speed = 121.12
+dash_speed = 256.5
+jump_force = 380.0
+body_height = 148.0
+body_width = 42.0
+portrait = ExtResource("2_tex")
+sprite = ExtResource("2_tex")
+anim_folder = "res://assets/fighters/light_bandit"
+frame_size = Vector2i(48, 48)
+pixel_scale = 4.0
+foot_y = 46.0
+frame_center_x = 27.0
+moves = Array[MoveData]([ExtResource("3_5LP"), ExtResource("4_5MP"), ExtResource("5_5HP"), ExtResource("6_5LK"), ExtResource("7_5MK"), ExtResource("8_5HK"), ExtResource("9_2LP"), ExtResource("10_2MP"), ExtResource("11_2HP"), ExtResource("12_2LK"), ExtResource("13_2MK"), ExtResource("14_2HK"), ExtResource("15_jLP"), ExtResource("16_jMP"), ExtResource("17_jHP"), ExtResource("18_jLK"), ExtResource("19_jMK"), ExtResource("20_jHK"), ExtResource("21_6HK")])
+specials = Array[MoveData]([ExtResource("22_623P"), ExtResource("23_throw")])
+supers = Array[MoveData]([ExtResource("24_236236P")])

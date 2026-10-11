@@ -17,23 +17,24 @@ func setup(data: StageData) -> void:
 	spr.z_index = -10
 	var tex_h := float(data.texture.get_height())
 	var tex_w := float(data.texture.get_width())
-	var display_h := data.display_height
+	var display_h := data.display_height * Constants.WORLD_SCALE
 	var scale_factor := display_h / tex_h
 	spr.scale = Vector2(scale_factor, scale_factor)
 	spr.position = Vector2(0, floor_y + display_h * (0.5 - data.floor_ratio))
 	add_child(spr)
 	var display_w := tex_w * scale_factor
-	left_wall = -display_w * 0.5 + data.wall_inset
-	right_wall = display_w * 0.5 - data.wall_inset
+	var inset := data.wall_inset * Constants.WORLD_SCALE
+	left_wall = -display_w * 0.5 + inset
+	right_wall = display_w * 0.5 - inset
 
 	var floor := StaticBody2D.new()
 	floor.collision_layer = Constants.LAYER_WORLD
 	floor.collision_mask = 0
 	var floor_shape := CollisionShape2D.new()
 	var floor_rect := RectangleShape2D.new()
-	floor_rect.size = Vector2(display_w + 400.0, 80.0)
+	floor_rect.size = Vector2(display_w + 400.0 * Constants.WORLD_SCALE, 80.0 * Constants.WORLD_SCALE)
 	floor_shape.shape = floor_rect
-	floor_shape.position = Vector2(0, 40)
+	floor_shape.position = Vector2(0, 40.0 * Constants.WORLD_SCALE)
 	floor.position = Vector2(0, floor_y)
 	floor.add_child(floor_shape)
 	add_child(floor)
@@ -47,8 +48,8 @@ func _add_wall(x: float) -> void:
 	body.collision_mask = 0
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	rect.size = Vector2(40, 900)
+	rect.size = Vector2(40.0 * Constants.WORLD_SCALE, 900.0 * Constants.WORLD_SCALE)
 	shape.shape = rect
-	body.position = Vector2(x, floor_y - 450.0)
+	body.position = Vector2(x, floor_y - 450.0 * Constants.WORLD_SCALE)
 	body.add_child(shape)
 	add_child(body)

@@ -16,21 +16,21 @@ func enter(data: Dictionary = {}) -> void:
 	fighter.set_crouching(false)
 	var push := 460.0
 	if move != null:
-		push = move.knockback.x
+		push = move.knockback.x * Constants.WORLD_SCALE
 	var dir: int = attacker.facing if attacker != null else -fighter.facing
 	fighter.velocity.x = dir * push
 	if move != null and move.launch_force > 0.0:
-		fighter.velocity.y = -move.launch_force
+		fighter.velocity.y = -move.launch_force * Constants.WORLD_SCALE
 		launched = true
 	elif not fighter.is_on_floor():
-		fighter.velocity.y = minf(fighter.velocity.y, -300.0)
+		fighter.velocity.y = minf(fighter.velocity.y, -300.0 * Constants.WORLD_SCALE)
 		launched = true
 
 
 func physics_update(delta: float) -> void:
 	frames += 1
 	fighter.pose_hit()
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 420.0 * delta)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 420.0 * Constants.WORLD_SCALE * delta)
 	var stun := move.hitstun if move != null else 12
 	if launched and frames > 5 and fighter.is_on_floor() and fighter.velocity.y >= 0.0:
 		fighter.machine.change_state("Knockdown")

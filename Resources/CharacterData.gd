@@ -10,6 +10,11 @@ extends Resource
 @export var body_width: float = 70.0
 @export var portrait: Texture2D
 @export var sprite: Texture2D
+@export var anim_folder: String = ""
+@export var frame_size: Vector2i = Vector2i(200, 200)
+@export var pixel_scale: float = 3.0
+@export var foot_y: float = 122.0
+@export var frame_center_x: float = 100.0
 @export var moves: Array[MoveData] = []
 @export var specials: Array[MoveData] = []
 @export var supers: Array[MoveData] = []

@@ -5,13 +5,13 @@ func enter(_data: Dictionary = {}) -> void:
 	fighter.set_crouching(true)
 	fighter.pose_crouch()
 	fighter.motion_locked = false
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 400.0)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 400.0 * Constants.WORLD_SCALE)
 
 
 func physics_update(delta: float) -> void:
 	fighter.face_opponent()
 	fighter.pose_crouch()
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 1800.0 * delta)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 1800.0 * Constants.WORLD_SCALE * delta)
 	if fighter.locked:
 		return
 	if fighter.try_offense():

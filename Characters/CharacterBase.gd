@@ -30,7 +30,7 @@ var forced_sample: Dictionary = {}
 var hp: HealthSystem
 var buffer: InputBuffer
 var machine: StateMachine
-var rig: FighterRig
+var anim: SpritePlayer
 var hurtbox: Area2D
 var hitbox: Area2D
 var hit_shape: CollisionShape2D
@@ -54,10 +54,10 @@ func _ready() -> void:
 	add_child(hp)
 	hp.setup(data.max_health)
 
-	rig = FighterRig.new()
-	rig.name = "Rig"
-	add_child(rig)
-	rig.setup(data.sprite, data.character_name, data.body_height)
+	anim = SpritePlayer.new()
+	anim.name = "Anim"
+	add_child(anim)
+	anim.setup(data)
 
 	var body_shape := CollisionShape2D.new()
 	var body := RectangleShape2D.new()
@@ -146,6 +146,8 @@ func _physics_process(delta: float) -> void:
 	if machine:
 		machine.physics_update(delta)
 	_integrate(delta)
+	if anim:
+		anim.tick(delta)
 	_update_visual()
 	queue_redraw()
 
@@ -187,14 +189,14 @@ func _clamp_stage() -> void:
 
 
 func _update_visual() -> void:
-	if rig == null:
+	if anim == null:
 		return
-	rig.apply_facing(facing)
+	anim.apply_facing(facing)
 	if flash > 0:
-		rig.modulate = Color(1.6, 0.7, 0.7)
+		anim.modulate = Color(1.6, 0.7, 0.7)
 		flash -= 1
 	else:
-		rig.modulate = Color.WHITE
+		anim.modulate = Color.WHITE
 
 
 func _draw() -> void:
@@ -256,8 +258,9 @@ func reset_pose() -> void:
 	anim_rotation = 0.0
 	anim_scale = Vector2.ONE
 	walk_phase = 0.0
-	if rig:
-		rig.pose_idle()
+	if anim:
+		anim.set_crouch(0.0)
+		anim.play("idle", true, 8.0)
 
 
 func desired_move() -> String:
@@ -330,10 +333,11 @@ func start_move(id: String) -> bool:
 
 
 func enable_hitbox(rect: Rect2) -> void:
+	var scaled := Rect2(rect.position * Constants.WORLD_SCALE, rect.size * Constants.WORLD_SCALE)
 	var shape := RectangleShape2D.new()
-	shape.size = rect.size
+	shape.size = scaled.size
 	hit_shape.shape = shape
-	hit_shape.position = Vector2((rect.position.x + rect.size.x * 0.5) * facing, rect.position.y + rect.size.y * 0.5)
+	hit_shape.position = Vector2((scaled.position.x + scaled.size.x * 0.5) * facing, scaled.position.y + scaled.size.y * 0.5)
 	hit_shape.disabled = false
 	hit_connected = false
 
@@ -431,7 +435,7 @@ func _contact_fx(attacker, move: MoveData, blocked: bool) -> void:
 	var nodes := get_tree().get_nodes_in_group("combat")
 	if nodes.is_empty():
 		return
-	var pos := global_position + Vector2(float(facing) * 30.0, -data.body_height * 0.55)
+	var pos := global_position + Vector2(float(facing) * 30.0 * Constants.WORLD_SCALE, -data.body_height * 0.55)
 	var facing_dir: int = attacker.facing if attacker != null else facing
 	nodes[0].on_contact(pos, facing_dir, blocked, move)
 
@@ -440,90 +444,109 @@ func spawn_fireball(move: MoveData) -> void:
 	var fb = preload("res://Characters/Fireball.gd").new()
 	fb.setup(self, move)
 	get_parent().add_child(fb)
-	fb.global_position = global_position + Vector2(float(facing) * 78.0, -120.0)
+	fb.global_position = global_position + Vector2(float(facing) * 78.0 * Constants.WORLD_SCALE, -data.body_height * 0.45)
 
 
 func pose_idle() -> void:
 	reset_pose()
 
 
-func pose_walk(phase: float, _back: bool) -> void:
-	if rig:
-		rig.pose_walk(phase)
+func pose_walk(_phase: float, back: bool) -> void:
+	if anim == null:
+		return
+	anim.set_crouch(0.0)
+	anim.play("run", true, 9.0 if back else 12.0)
 
 
 func pose_crouch() -> void:
-	if rig:
-		rig.pose_squat(1.0)
+	pose_squat(1.0)
 
 
 func pose_squat(amount: float) -> void:
-	if rig:
-		rig.pose_squat(amount)
+	if anim == null:
+		return
+	anim.play("idle", true, 8.0)
+	anim.set_crouch(amount)
 
 
 func pose_jump(amount: float) -> void:
-	if rig:
-		rig.pose_jump(amount)
+	if anim == null:
+		return
+	anim.set_crouch(0.0)
+	if amount < 0.6 and anim.has_clip("fall"):
+		anim.play("fall", true, 6.0)
+	else:
+		anim.play("jump", false, 8.0)
 
 
 func pose_attack(move: MoveData, frame: int) -> void:
-	if move == null or rig == null:
+	if move == null or anim == null:
 		return
-	var peak := maxi(move.startup, 1)
-	var weight := 1.0
-	if frame < peak:
-		weight = float(frame) / float(peak)
-	elif frame > move.startup + move.active:
-		var recovery := maxi(move.recovery, 1)
-		var into := frame - (move.startup + move.active)
-		weight = 1.0 - float(into) / float(recovery)
-	rig.pose_attack(move.move_name, clampf(weight, 0.0, 1.0))
+	var total := maxi(move.startup + move.active + move.recovery, 1)
+	var low := move.move_name.begins_with("2") and move.move_name.length() <= 3
+	anim.set_crouch(1.0 if low else 0.0)
+	anim.play_ratio(_attack_clip(move.move_name), clampf(float(frame) / float(total), 0.0, 1.0))
 
 
 func pose_hit() -> void:
-	if rig:
-		rig.pose_react(0.28, Vector2(-10, 0), 0.15)
+	if anim:
+		anim.set_crouch(0.0)
+		anim.play("hurt", false, 10.0)
 
 
 func pose_block() -> void:
-	if rig:
-		rig.pose_react(0.1, Vector2(-12, 0), 0.0)
+	if anim:
+		anim.set_crouch(0.0)
+		anim.play("idle", true, 8.0)
 
 
 func pose_knockdown() -> void:
-	if rig:
-		rig.pose_react(1.25, Vector2(0, 12), 0.55)
+	if anim:
+		anim.set_crouch(0.0)
+		anim.play("death", false, 10.0)
 
 
 func pose_getup(t: float) -> void:
-	if rig == null:
+	if anim == null:
 		return
-	rig.pose_react(lerpf(1.15, 0.0, t), Vector2.ZERO, lerpf(0.5, 0.0, t))
+	anim.set_crouch(0.0)
+	if anim.has_clip("recover"):
+		anim.play_ratio("recover", t)
+	else:
+		anim.play("idle", true, 8.0)
 
 
 func pose_dash(back: bool) -> void:
-	if rig == null:
+	if anim == null:
 		return
-	if back:
-		rig.pose_react(0.12, Vector2(-10, 0), 0.1)
-		rig.rear_hip.rotation = 0.28
-	else:
-		rig.pose_react(-0.14, Vector2(14, 0), 0.0)
-		rig.lead_hip.rotation = -0.32
-		rig.lead_knee.rotation = 0.35
+	anim.set_crouch(0.0)
+	anim.play("run", true, 10.0 if back else 16.0)
 
 
 func pose_throw(heavy: bool) -> void:
-	if rig == null:
+	if anim == null:
 		return
-	rig.pose_attack("236236P" if heavy else "throw", 1.0)
-	rig.lean(0.32 if heavy else 0.18, Vector2(20, 0))
+	anim.set_crouch(0.0)
+	anim.play_ratio(_attack_clip("236236P" if heavy else "throw"), 1.0)
 
 
-func pose_thrown(wobble: float) -> void:
-	if rig:
-		rig.pose_react(wobble, Vector2.ZERO, 0.3)
+func pose_thrown(_wobble: float) -> void:
+	if anim:
+		anim.set_crouch(0.0)
+		anim.play("hurt", false, 10.0)
+
+
+func _attack_clip(move_name: String) -> String:
+	var heavy := move_name in ["236P", "623P", "360P", "throw", "236236P", "6HK"]
+	if not heavy and move_name.length() > 2:
+		var tail := move_name.substr(1)
+		if tail in ["HP", "HK"]:
+			heavy = true
+	if heavy and anim.has_clip("attack_heavy"):
+		return "attack_heavy"
+	if anim.has_clip("attack_light"):
+		return "attack_light"
+	return "attack"
 
 
 func full_reset(x: float, floor_y: float) -> void:

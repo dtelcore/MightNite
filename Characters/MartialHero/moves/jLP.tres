@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "jLP"
+input = "jLP"
+startup = 4
+active = 6
+recovery = 10
+damage = 32
+chip_damage = 0
+hitstun = 14
+blockstun = 10
+knockback = Vector2(300, -40)
+launch_force = 0
+is_projectile = false
+is_throw = false
+is_command_grab = false
+armor = false
+hitbox = Rect2(28, -130, 64, 42)
+animation = "jLP"
+cancel_into = Array[String]([])
+scaling = 1.0
+height = 2
+sprite_offset = Vector2(18, -6)
+sprite_rotation = -0.2
+hitstop_frames = 4

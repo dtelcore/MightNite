@@ -11,7 +11,7 @@ func physics_update(delta: float) -> void:
 	fighter.face_opponent()
 	fighter.pose_idle()
 	if fighter.locked:
-		fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 2200.0 * delta)
+		fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 2200.0 * Constants.WORLD_SCALE * delta)
 		return
 	if fighter.try_offense():
 		return
@@ -31,4 +31,4 @@ func physics_update(delta: float) -> void:
 	if rel.x != 0:
 		fighter.machine.change_state("Walk", {"back": rel.x < 0})
 		return
-	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 2200.0 * delta)
+	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 2200.0 * Constants.WORLD_SCALE * delta)

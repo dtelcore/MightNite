@@ -15,8 +15,8 @@ func _ready() -> void:
 
 
 func _load_defaults() -> void:
-	p1_data = load("res://Characters/Ryuji/Ryuji.tres")
-	p2_data = load("res://Characters/Titan/Titan.tres")
+	p1_data = load("res://Characters/MartialHero/MartialHero.tres")
+	p2_data = load("res://Characters/HeavyBandit/HeavyBandit.tres")
 	stage = load("res://Stages/dojo.tres")
 
 

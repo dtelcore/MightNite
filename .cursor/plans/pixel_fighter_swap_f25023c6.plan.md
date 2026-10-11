@@ -4,16 +4,16 @@ overview: Replace Ryuji and Titan with Martial Hero, Light Bandit, and Heavy Ban
 todos:
   - id: clips
     content: Copy the sprite sheets in and add a frame player that maps idle, run, jump, attacks, hurt, death, and recover
-    status: pending
+    status: completed
   - id: roster
     content: Add Martial Hero, Light Bandit, and Heavy Bandit with the existing move kits, and remove Ryuji, Titan, and the limb rig
-    status: pending
+    status: completed
   - id: scale-world
     content: Shrink stage size, movement, hitboxes, and camera distances by the new character scale, and zoom the camera back in
-    status: pending
+    status: completed
   - id: select-smoke
     content: Fit three portraits on the select screen and re-run the smoke test
-    status: pending
+    status: completed
 isProject: false
 ---
 

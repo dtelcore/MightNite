@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MoveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Resources/MoveData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+move_name = "5LK"
+input = "5LK"
+startup = 5
+active = 3
+recovery = 9
+damage = 34
+chip_damage = 0
+hitstun = 12
+blockstun = 8
+knockback = Vector2(400, 0)
+launch_force = 0
+is_projectile = false
+is_throw = false
+is_command_grab = false
+armor = false
+hitbox = Rect2(46, -120, 70, 36)
+animation = "5LK"
+cancel_into = Array[String](["5MP", "5HP", "5MK", "5HK", "236P", "623P", "236236P"])
+scaling = 1.0
+height = 1
+sprite_offset = Vector2(18, 4)
+sprite_rotation = -0.1
+hitstop_frames = 4
