@@ -21,12 +21,12 @@ func capture(sample: Dictionary) -> void:
 		btn_hist.pop_front()
 	var rel_x := held_dir.x * facing
 	if rel_x > 0 and prev_rel_x <= 0:
-		if frame - forward_tap_frame <= 16 and frame - forward_tap_frame > 1:
+		if forward_tap_frame > 0 and frame - forward_tap_frame <= 16 and frame - forward_tap_frame > 1:
 			forward_tap_frame = -frame
 		else:
 			forward_tap_frame = frame
 	if rel_x < 0 and prev_rel_x >= 0:
-		if frame - back_tap_frame <= 16 and frame - back_tap_frame > 1:
+		if back_tap_frame > 0 and frame - back_tap_frame <= 16 and frame - back_tap_frame > 1:
 			back_tap_frame = -frame
 		else:
 			back_tap_frame = frame
@@ -35,11 +35,13 @@ func capture(sample: Dictionary) -> void:
 
 func dash_tapped(forward: bool) -> bool:
 	var stamp := forward_tap_frame if forward else back_tap_frame
-	if stamp < 0 and frame + stamp <= 2:
+	# A negative stamp is the frame a double tap was confirmed. The initial
+	# sentinel is also negative, so it only counts when it was set this frame.
+	if stamp < 0 and frame + stamp >= 0 and frame + stamp <= 2:
 		if forward:
-			forward_tap_frame = -999
+			forward_tap_frame = 0
 		else:
-			back_tap_frame = -999
+			back_tap_frame = 0
 		return true
 	return false
 

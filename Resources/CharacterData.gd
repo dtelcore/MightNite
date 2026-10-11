@@ -15,6 +15,7 @@ extends Resource
 @export var pixel_scale: float = 3.0
 @export var foot_y: float = 122.0
 @export var frame_center_x: float = 100.0
+@export var sheet_faces_right: bool = true
 @export var moves: Array[MoveData] = []
 @export var specials: Array[MoveData] = []
 @export var supers: Array[MoveData] = []

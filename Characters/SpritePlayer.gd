@@ -9,6 +9,7 @@ var _frame_size := Vector2(200, 200)
 var _pixel_scale := 3.0
 var _foot_y := 122.0
 var _center_x := 100.0
+var _sheet_faces_right := true
 var _loop := true
 var _stretch := false
 var _fps := 8.0
@@ -23,6 +24,7 @@ func setup(data: CharacterData) -> void:
 	_pixel_scale = data.pixel_scale
 	_foot_y = data.foot_y
 	_center_x = data.frame_center_x
+	_sheet_faces_right = data.sheet_faces_right
 	_body_height = data.body_height
 	_sprite = Sprite2D.new()
 	_sprite.name = "Frames"
@@ -122,10 +124,12 @@ func set_crouch(amount: float) -> void:
 func apply_facing(facing: int) -> void:
 	if _sprite == null:
 		return
-	_sprite.flip_h = facing < 0
+	var look_right := facing > 0
+	_sprite.flip_h = look_right != _sheet_faces_right
 	var shift := (_frame_size.x * 0.5 - _center_x) * _pixel_scale
 	var foot := -(_foot_y - _frame_size.y * 0.5) * _pixel_scale
-	_sprite.position = Vector2(shift * float(facing), foot + _body_height * 0.22 * _crouch)
+	var mirror := -1.0 if _sprite.flip_h else 1.0
+	_sprite.position = Vector2(shift * mirror, foot + _body_height * 0.22 * _crouch)
 	_sprite.scale = Vector2(_pixel_scale, _pixel_scale)
 
 

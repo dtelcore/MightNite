@@ -59,6 +59,16 @@ func _run() -> void:
 		return
 	if not p1.is_on_floor() or not p2.is_on_floor():
 		errors.append("fighters not grounded p1=%s p2=%s" % [p1.global_position, p2.global_position])
+	p1.anim.apply_facing(1)
+	p2.anim.apply_facing(-1)
+	if p1.anim.get_node("Frames").flip_h or p2.anim.get_node("Frames").flip_h:
+		errors.append("fighters are not facing each other")
+	p1.anim.apply_facing(-1)
+	p2.anim.apply_facing(1)
+	if not p1.anim.get_node("Frames").flip_h or not p2.anim.get_node("Frames").flip_h:
+		errors.append("fighters did not turn around")
+	if p1.buffer.dash_tapped(true) or p2.buffer.dash_tapped(true) or p1.buffer.dash_tapped(false) or p2.buffer.dash_tapped(false):
+		errors.append("dash triggered with no input")
 	p1.locked = false
 	p2.locked = false
 	var floor_y: float = fight.stage.floor_y

@@ -42,6 +42,7 @@ frame_size = Vector2i(48, 48)
 pixel_scale = 4.0
 foot_y = 46.0
 frame_center_x = 27.0
+sheet_faces_right = false
 moves = Array[MoveData]([ExtResource("3_5LP"), ExtResource("4_5MP"), ExtResource("5_5HP"), ExtResource("6_5LK"), ExtResource("7_5MK"), ExtResource("8_5HK"), ExtResource("9_2LP"), ExtResource("10_2MP"), ExtResource("11_2HP"), ExtResource("12_2LK"), ExtResource("13_2MK"), ExtResource("14_2HK"), ExtResource("15_jLP"), ExtResource("16_jMP"), ExtResource("17_jHP"), ExtResource("18_jLK"), ExtResource("19_jMK"), ExtResource("20_jHK"), ExtResource("21_6HK")])
 specials = Array[MoveData]([ExtResource("22_623P"), ExtResource("23_360P"), ExtResource("24_throw")])
 supers = Array[MoveData]([ExtResource("25_236236P")])
