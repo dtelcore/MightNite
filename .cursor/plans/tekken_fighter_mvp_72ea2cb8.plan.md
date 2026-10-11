@@ -4,28 +4,28 @@ overview: Build a local 1v1 Tekken-style 2D fighter in Godot 4 using the portrai
 todos:
   - id: setup
     content: Locate the in-progress Godot 4 install, create project.godot, input map, physics layers, and folder tree. Do not start a second install.
-    status: in_progress
+    status: completed
   - id: art-import
     content: Cut Ryuji.jpg and Megaman.jpg off the baked checkerboard into PNGs, and add StageData for all five stage paintings.
-    status: pending
+    status: completed
   - id: movement
     content: CharacterBase, state machine, input buffer, movement posed on the cutout sprites, and soft-lock camera.
-    status: pending
+    status: completed
   - id: combat-core
     content: MoveData/CharacterData, hitboxes, one light attack through damage, block, hitstun, hitstop, and sparks.
-    status: pending
+    status: completed
   - id: movesets
     content: Both characters' normals, cancels, scaling, knockdown/getup, and juggles.
-    status: pending
+    status: completed
   - id: specials
     content: Ryuji fireball and uppercut, Titan armor and command grab, supers, and throws.
-    status: pending
+    status: completed
   - id: match-ui
     content: Main menu, character select with the portraits, stage thumbnails, 99s best-of-3, HUD, and the five stages.
-    status: pending
+    status: completed
   - id: polish-verify
     content: Shake, block sparks, silent-safe SFX hooks, debug overlay, headless import, and local 1v1 playtest.
-    status: pending
+    status: completed
 isProject: false
 ---
 
