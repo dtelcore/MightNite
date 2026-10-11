@@ -3,5 +3,4 @@
 *.translation
 .DS_Store
 android/
-Core/SupabaseConfig.gd
 .cursor/plans/

@@ -50,8 +50,8 @@ var match_live := false
 var stepping := true
 var socket_ready := false
 
-var _url := ""
-var _key := ""
+var _url := "https://zxtvgiwlmhhcwxldfnot.supabase.co"
+var _key := "sb_publishable_p_OiVENnzl-bVpoKsU-sPw_OkkIsw82"
 var _http: HTTPRequest
 var _http_busy := false
 var _queue: Array = []
