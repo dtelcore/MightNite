@@ -50,6 +50,7 @@ func _ready() -> void:
 	manager.name = "MatchManager"
 	add_child(manager)
 	manager.setup(self)
+	Net.attach_match(p1, p2)
 
 
 func _spawn(data: CharacterData, index: int, x: float):
@@ -64,9 +65,7 @@ func _spawn(data: CharacterData, index: int, x: float):
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		GameManager.p1_rounds = 0
-		GameManager.p2_rounds = 0
-		get_tree().change_scene_to_file("res://Scenes/MainMenu.tscn")
+		Net.leave()
 
 
 func _physics_process(_delta: float) -> void:

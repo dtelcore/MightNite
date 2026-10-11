@@ -14,5 +14,7 @@ func trigger(count: int) -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if not Net.should_step():
+		return
 	if frames > 0:
 		frames -= 1

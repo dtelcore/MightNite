@@ -26,6 +26,7 @@ var anim_scale := Vector2.ONE
 var flash := 0
 var walk_phase := 0.0
 var forced_sample: Dictionary = {}
+var floor_contact := true
 
 var hp: HealthSystem
 var buffer: InputBuffer
@@ -81,13 +82,12 @@ func _ready() -> void:
 
 	hitbox = Area2D.new()
 	hitbox.name = "Hitbox"
-	hitbox.monitoring = true
+	hitbox.monitoring = false
 	hitbox.monitorable = false
 	add_child(hitbox)
 	hit_shape = CollisionShape2D.new()
 	hit_shape.disabled = true
 	hitbox.add_child(hit_shape)
-	hitbox.area_entered.connect(_on_hitbox_area_entered)
 	_apply_layers()
 
 	buffer = InputBuffer.new()
@@ -138,36 +138,63 @@ func _apply_layers() -> void:
 		hitbox.collision_mask = Constants.LAYER_P1_HURT
 
 
-func _physics_process(delta: float) -> void:
+func on_floor() -> bool:
+	return floor_contact
+
+
+func _physics_process(_delta: float) -> void:
 	_tick_hit_notes()
+	if not Net.should_step():
+		_update_visual()
+		queue_redraw()
+		return
 	if GameManager.is_frozen():
 		_update_visual()
 		queue_redraw()
 		return
 	if buffer != null:
 		buffer.facing = facing
-		var sample: Dictionary = forced_sample if not forced_sample.is_empty() else InputManager.sample(player_index)
+		var sample: Dictionary = forced_sample if not forced_sample.is_empty() else Net.sample_for(player_index)
 		buffer.capture(sample)
 	if machine:
-		machine.physics_update(delta)
-	_integrate(delta)
+		machine.physics_update(Constants.FRAME)
+	_integrate()
 	if anim:
-		anim.tick(delta)
+		anim.tick(Constants.FRAME)
 	_update_visual()
 	queue_redraw()
 
 
-func _integrate(delta: float) -> void:
+func _integrate() -> void:
+	var step := Constants.FRAME
 	if motion_locked:
 		velocity = Vector2.ZERO
 		return
-	if not is_on_floor():
-		velocity.y += Constants.GRAVITY * delta
-	elif velocity.y > 0.0:
-		velocity.y = 30.0
-	move_and_slide()
+	if velocity.y < 0.0:
+		floor_contact = false
+	if not floor_contact:
+		velocity.y += Constants.GRAVITY * step
+	else:
+		velocity.y = 0.0
+	global_position.x += velocity.x * step
+	if floor_contact:
+		global_position.y = _stage_floor()
+	else:
+		global_position.y += velocity.y * step
+		var floor_y := _stage_floor()
+		if global_position.y >= floor_y and velocity.y >= 0.0:
+			global_position.y = floor_y
+			velocity.y = 0.0
+			floor_contact = true
 	_separate()
 	_clamp_stage()
+
+
+func _stage_floor() -> float:
+	var stages := get_tree().get_nodes_in_group("stage")
+	if stages.is_empty():
+		return Constants.FLOOR_Y
+	return stages[0].floor_y
 
 
 func _separate() -> void:
@@ -332,7 +359,7 @@ func desired_move() -> String:
 	if locked or data == null:
 		return ""
 	var punch := buffer.pressed_within(["lp", "mp", "hp"])
-	if is_on_floor() and punch:
+	if on_floor() and punch:
 		if data.get_move("236236P") and (buffer.matches([2, 3, 6, 2, 3, 6], 24) or buffer.matches([2, 6, 2, 6], 24)):
 			return "236236P"
 		if data.get_move("360P") and buffer.has_360():
@@ -341,7 +368,7 @@ func desired_move() -> String:
 			return "623P"
 		if data.get_move("236P") and (buffer.matches([2, 3, 6]) or buffer.matches([2, 6])):
 			return "236P"
-	if is_on_floor() and buffer.pressed_within(["lp"]) and buffer.pressed_within(["lk"]) and data.get_move("throw"):
+	if on_floor() and buffer.pressed_within(["lp"]) and buffer.pressed_within(["lk"]) and data.get_move("throw"):
 		return "throw"
 	return _normal_id()
 
@@ -351,7 +378,7 @@ func _normal_id() -> String:
 	if button == "":
 		return ""
 	var strength: String = {"lp": "LP", "mp": "MP", "hp": "HP", "lk": "LK", "mk": "MK", "hk": "HK"}[button]
-	if not is_on_floor():
+	if not on_floor():
 		if air_action_used:
 			return ""
 		return "j" + strength
@@ -368,7 +395,7 @@ func try_offense() -> bool:
 	if id == "":
 		return false
 	if start_move(id):
-		if not is_on_floor():
+		if not on_floor():
 			air_action_used = true
 		buffer.consume_buttons()
 		return true
@@ -416,22 +443,26 @@ func disable_hitbox() -> void:
 		hit_shape.disabled = true
 
 
+func hurt_world_rect() -> Rect2:
+	return _rect_of(hurt_shape)
+
+
+func _rect_of(shape_node: CollisionShape2D) -> Rect2:
+	if shape_node == null or shape_node.shape == null or not (shape_node.shape is RectangleShape2D):
+		return Rect2()
+	var rect_shape := shape_node.shape as RectangleShape2D
+	var center := shape_node.global_position
+	return Rect2(center - rect_shape.size * 0.5, rect_shape.size)
+
+
 func poll_hitbox() -> void:
-	if hit_connected or hit_shape == null or hit_shape.disabled:
+	if hit_connected or hit_shape == null or hit_shape.disabled or opponent == null:
 		return
-	for area in hitbox.get_overlapping_areas():
-		_on_hitbox_area_entered(area)
-		if hit_connected:
-			return
-
-
-func _on_hitbox_area_entered(area: Area2D) -> void:
-	if hit_connected or hit_shape == null or hit_shape.disabled:
+	var mine := _rect_of(hit_shape)
+	var theirs: Rect2 = opponent.hurt_world_rect()
+	if mine.size == Vector2.ZERO or theirs.size == Vector2.ZERO or not mine.intersects(theirs):
 		return
-	var victim = area.get_parent()
-	if victim == self or not victim.has_method("receive_hit"):
-		return
-	if victim.receive_hit(self, attack_move):
+	if opponent.receive_hit(self, attack_move):
 		hit_connected = true
 
 
@@ -481,7 +512,7 @@ func receive_hit(attacker, move: MoveData) -> bool:
 	flash = 6
 	health_changed.emit(hp.current, hp.maximum)
 	GameManager.trigger_hitstop(move.hitstop_frames)
-	var launched := move.launch_force > 0.0 or not is_on_floor()
+	var launched := move.launch_force > 0.0 or not on_floor()
 	machine.change_state("Hitstun", {"move": move, "attacker": attacker, "launched": launched})
 	_contact_fx(attacker, move, false)
 	return true
@@ -624,6 +655,7 @@ func full_reset(x: float, floor_y: float) -> void:
 	health_changed.emit(hp.current, hp.maximum)
 	global_position = Vector2(x, floor_y)
 	velocity = Vector2.ZERO
+	floor_contact = true
 	invulnerable = false
 	armor_active = false
 	locked = false

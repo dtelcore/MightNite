@@ -11,7 +11,7 @@ func setup(fighter, fired_move: MoveData) -> void:
 	move = fired_move
 	facing = fighter.facing
 	add_to_group("projectile")
-	monitoring = true
+	monitoring = false
 	monitorable = false
 	z_index = 6
 	if fighter.player_index == 0:
@@ -25,11 +25,10 @@ func setup(fighter, fired_move: MoveData) -> void:
 	shape.radius = 22.0 * Constants.WORLD_SCALE
 	shape_node.shape = shape
 	add_child(shape_node)
-	area_entered.connect(_on_area_entered)
 
 
 func _physics_process(_delta: float) -> void:
-	if GameManager.is_frozen():
+	if not Net.should_step() or GameManager.is_frozen():
 		return
 	position.x += 13.5 * Constants.WORLD_SCALE * float(facing)
 	life -= 1
@@ -42,14 +41,32 @@ func _physics_process(_delta: float) -> void:
 			return
 	if life <= 0:
 		queue_free()
-
-
-func _on_area_entered(area: Area2D) -> void:
-	var victim = area.get_parent()
-	if victim == owner_fighter or victim == null:
 		return
-	if victim.has_method("receive_hit") and victim.receive_hit(owner_fighter, move):
+	_try_hit()
+
+
+func _try_hit() -> void:
+	if owner_fighter == null or owner_fighter.opponent == null:
+		return
+	var victim = owner_fighter.opponent
+	if not victim.has_method("hurt_world_rect") or not victim.has_method("receive_hit"):
+		return
+	var rect: Rect2 = victim.hurt_world_rect()
+	if rect.size == Vector2.ZERO:
+		return
+	var radius := 22.0 * Constants.WORLD_SCALE
+	if not _circle_hits(global_position, radius, rect):
+		return
+	if victim.receive_hit(owner_fighter, move):
 		queue_free()
+
+
+func _circle_hits(center: Vector2, radius: float, rect: Rect2) -> bool:
+	var closest := Vector2(
+		clampf(center.x, rect.position.x, rect.position.x + rect.size.x),
+		clampf(center.y, rect.position.y, rect.position.y + rect.size.y)
+	)
+	return center.distance_squared_to(closest) <= radius * radius
 
 
 func _draw() -> void:

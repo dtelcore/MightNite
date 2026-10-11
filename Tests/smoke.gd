@@ -34,10 +34,27 @@ func _run() -> void:
 		var stage = load(stage_path)
 		if stage == null or stage.texture == null:
 			errors.append("stage missing %s" % stage_path)
+	if errors.is_empty():
+		var sample := {
+			"dir": Vector2i(-1, 1),
+			"pressed": {"lp": true, "mp": false, "hp": true, "lk": false, "mk": true, "hk": false},
+		}
+		var net = root.get_node("Net")
+		var packed: PackedByteArray = net.pack_input(400, sample)
+		var back: Dictionary = net.unpack_input(packed)
+		if int(back.get("frame", -1)) != 400 or back.get("sample", {}).get("dir", Vector2i.ZERO) != Vector2i(-1, 1):
+			errors.append("input packet did not round trip")
+		var pressed: Dictionary = back.get("sample", {}).get("pressed", {})
+		if not pressed.get("lp", false) or pressed.get("mp", false) or not pressed.get("hp", false) or not pressed.get("mk", false) or pressed.get("hk", false):
+			errors.append("input packet buttons changed")
 	var menu = load("res://Scenes/MainMenu.tscn").instantiate()
 	root.add_child(menu)
 	await process_frame
 	menu.queue_free()
+	var lobby = load("res://Scenes/OnlineLobby.tscn").instantiate()
+	root.add_child(lobby)
+	await process_frame
+	lobby.queue_free()
 	var select = load("res://Scenes/CharacterSelect.tscn").instantiate()
 	root.add_child(select)
 	await process_frame
@@ -57,7 +74,7 @@ func _run() -> void:
 		errors.append("fighters did not spawn")
 		_finish(errors)
 		return
-	if not p1.is_on_floor() or not p2.is_on_floor():
+	if not p1.on_floor() or not p2.on_floor():
 		errors.append("fighters not grounded p1=%s p2=%s" % [p1.global_position, p2.global_position])
 	p1.anim.apply_facing(1)
 	p2.anim.apply_facing(-1)
@@ -119,6 +136,14 @@ func _run() -> void:
 	if not spawned:
 		errors.append("fireball did not spawn")
 
+	for node in get_nodes_in_group("projectile"):
+		node.queue_free()
+	await physics_frame
+	var first := await _replay(fight, p1, p2)
+	var second := await _replay(fight, p1, p2)
+	if first != second:
+		errors.append("scripted inputs diverged %s vs %s" % [first, second])
+
 	_check_clips(p1, "Martial Hero", errors)
 	_check_clips(p2, "Heavy Bandit", errors)
 	var light_fighter = load("res://Characters/CharacterBase.tscn").instantiate()
@@ -128,6 +153,54 @@ func _run() -> void:
 	await physics_frame
 	_check_clips(light_fighter, "Light Bandit", errors)
 	_finish(errors)
+
+
+func _replay(fight, p1, p2) -> String:
+	var floor_y: float = fight.stage.floor_y
+	var scale := Constants.WORLD_SCALE
+	p1.full_reset(-180.0 * scale, floor_y)
+	p2.full_reset(180.0 * scale, floor_y)
+	p1.facing = 1
+	p2.facing = -1
+	p1.locked = false
+	p2.locked = false
+	p1.opponent = p2
+	p2.opponent = p1
+	var neutral := _sample(Vector2i.ZERO)
+	var toward := _sample(Vector2i(1, 0))
+	var away := _sample(Vector2i(-1, 0))
+	var hop := _sample(Vector2i(0, -1))
+	for i in 70:
+		if i < 25:
+			p1.forced_sample = toward
+			p2.forced_sample = away
+		elif i < 40:
+			p1.forced_sample = hop
+			p2.forced_sample = hop
+		else:
+			p1.forced_sample = toward
+			p2.forced_sample = away
+		await physics_frame
+	p1.forced_sample = neutral
+	p2.forced_sample = {}
+	var text := "%s|%s|%s|%s|%s|%s" % [
+		p1.hp.current,
+		p2.hp.current,
+		int(round(p1.global_position.x)),
+		int(round(p1.global_position.y)),
+		int(round(p2.global_position.x)),
+		int(round(p2.global_position.y)),
+	]
+	p1.forced_sample = {}
+	p2.forced_sample = {}
+	return text
+
+
+func _sample(dir: Vector2i) -> Dictionary:
+	return {
+		"dir": dir,
+		"pressed": {"lp": false, "mp": false, "hp": false, "lk": false, "mk": false, "hk": false},
+	}
 
 
 func _check_clips(fighter, who: String, errors: Array[String]) -> void:

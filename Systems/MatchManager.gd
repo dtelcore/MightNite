@@ -19,11 +19,15 @@ func setup(match_root) -> void:
 	p2 = match_root.p2
 	hud = match_root.hud
 	process_physics_priority = 40
+	if not Net.desynced.is_connected(_on_desync):
+		Net.desynced.connect(_on_desync)
 	_begin_intro()
 
 
 func _physics_process(_delta: float) -> void:
 	if p1 == null or p2 == null:
+		return
+	if not Net.should_step():
 		return
 	if phase == Phase.INTRO:
 		timer += 1
@@ -57,7 +61,7 @@ func _physics_process(_delta: float) -> void:
 		if timer > 160:
 			GameManager.p1_rounds = 0
 			GameManager.p2_rounds = 0
-			get_tree().change_scene_to_file("res://Scenes/MainMenu.tscn")
+			Net.leave()
 	if hud:
 		hud.refresh_rounds()
 
@@ -114,13 +118,23 @@ func _time_up() -> void:
 		hud.announce("DRAW")
 
 
+func _on_desync() -> void:
+	if phase == Phase.MATCH_END:
+		return
+	phase = Phase.MATCH_END
+	timer = 0
+	_set_locked(true)
+	if hud:
+		hud.announce("DESYNC")
+
+
 func _next_round() -> void:
 	round_number += 1
 	for node in get_tree().get_nodes_in_group("projectile"):
 		node.queue_free()
 	var floor_y: float = match_node.stage.floor_y
-	p1.full_reset(-280.0, floor_y)
-	p2.full_reset(280.0, floor_y)
+	p1.full_reset(-280.0 * Constants.WORLD_SCALE, floor_y)
+	p2.full_reset(280.0 * Constants.WORLD_SCALE, floor_y)
 	p1.opponent = p2
 	p2.opponent = p1
 	p1.facing = 1

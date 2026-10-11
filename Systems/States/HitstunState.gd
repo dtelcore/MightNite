@@ -22,7 +22,7 @@ func enter(data: Dictionary = {}) -> void:
 	if move != null and move.launch_force > 0.0:
 		fighter.velocity.y = -move.launch_force * Constants.WORLD_SCALE
 		launched = true
-	elif not fighter.is_on_floor():
+	elif not fighter.on_floor():
 		fighter.velocity.y = minf(fighter.velocity.y, -300.0 * Constants.WORLD_SCALE)
 		launched = true
 
@@ -32,10 +32,10 @@ func physics_update(delta: float) -> void:
 	fighter.pose_hit()
 	fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 420.0 * Constants.WORLD_SCALE * delta)
 	var stun := move.hitstun if move != null else 12
-	if launched and frames > 5 and fighter.is_on_floor() and fighter.velocity.y >= 0.0:
+	if launched and frames > 5 and fighter.on_floor() and fighter.velocity.y >= 0.0:
 		fighter.machine.change_state("Knockdown")
 		return
-	if frames >= stun and fighter.is_on_floor() and not launched:
+	if frames >= stun and fighter.on_floor() and not launched:
 		fighter.machine.change_state("Idle")
 
 

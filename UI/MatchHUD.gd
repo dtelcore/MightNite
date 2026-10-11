@@ -40,7 +40,7 @@ func setup(a, b) -> void:
 	announce_label = _label(root, "", 240, 300, 800, 90, HORIZONTAL_ALIGNMENT_CENTER)
 	announce_label.add_theme_font_size_override("font_size", 64)
 	debug_label = _label(root, "", 24, 640, 900, 24, HORIZONTAL_ALIGNMENT_LEFT)
-	var help := _label(root, "P1 WASD + UIO/JKL    P2 Arrows + ; ' \\ , . /    F1 debug    Esc menu", 180, 680, 920, 22, HORIZONTAL_ALIGNMENT_CENTER)
+	var help := _label(root, _help_text(), 180, 680, 920, 22, HORIZONTAL_ALIGNMENT_CENTER)
 	help.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	refresh_rounds()
 
@@ -100,6 +100,13 @@ func _pips(count: int) -> String:
 	for i in 2:
 		text += "●" if i < count else "○"
 	return text
+
+
+func _help_text() -> String:
+	if Net.online:
+		var side := "P1" if Net.local_slot == 0 else "P2"
+		return "You are %s    use the P1 keys    delay %d    Esc menu" % [side, Net.input_delay]
+	return "P1 WASD + UIO/JKL    P2 Arrows + ; ' \\ , . /    F1 debug    Esc menu"
 
 
 func _process(_delta: float) -> void:

@@ -4,7 +4,7 @@ extends RefCounted
 static func blocked(defender, move: MoveData) -> bool:
 	if defender == null or move == null:
 		return false
-	if not defender.is_on_floor():
+	if not defender.on_floor():
 		return false
 	if not defender.holding_back():
 		return false

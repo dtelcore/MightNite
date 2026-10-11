@@ -4,19 +4,19 @@ overview: "Add friend-code 1v1 on top of the existing local fighter: a free Supa
 todos:
   - id: supabase-schema
     content: Apply the rooms SQL and RLS to project zxtvgiwlmhhcwxldfnot, and add a gitignored config with the URL and anon key
-    status: pending
+    status: completed
   - id: lobby
     content: "Add Online on the main menu: create/join by code, shared character and stage select"
-    status: pending
+    status: completed
   - id: webrtc
     content: Handshake over Realtime broadcast and send input bytes on a WebRTC data channel
-    status: pending
+    status: completed
   - id: lockstep
     content: Delay both fighters’ inputs and step the match only when both frames have arrived
-    status: pending
+    status: completed
   - id: determinism
     content: Replace move_and_slide and Area2D hit tests with fixed-step script movement and ordered overlap
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -42,7 +42,7 @@ func physics_update(delta: float) -> void:
 		fighter.velocity.x = fighter.facing * float(rel.x) * steer
 	else:
 		fighter.velocity.x = move_toward(fighter.velocity.x, 0.0, 500.0 * Constants.WORLD_SCALE * delta)
-	if lockout <= 0 and fighter.is_on_floor() and fighter.velocity.y >= 0.0:
+	if lockout <= 0 and fighter.on_floor() and fighter.velocity.y >= 0.0:
 		landing += 1
 		fighter.pose_squat(1.0 - clampf(float(landing) / 6.0, 0.0, 1.0))
 		if landing >= 6:

@@ -58,7 +58,7 @@ func physics_update(_delta: float) -> void:
 	if frame >= move.startup + move.active + move.recovery:
 		fighter.disable_hitbox()
 		fighter.armor_active = false
-		if fighter.is_on_floor():
+		if fighter.on_floor():
 			fighter.machine.change_state("Idle")
 		else:
 			fighter.machine.change_state("Jump", {"no_impulse": true})
