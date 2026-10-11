@@ -667,10 +667,9 @@ func _on_signal(data: Dictionary) -> void:
 		if offer == _remote_sdp:
 			return
 		_remote_sdp = offer
+		# Setting an offer makes the plugin emit the answer itself.
 		_peer.set_remote_description("offer", offer)
 		_flush_ice()
-		if _local_sdp == "":
-			_peer.create_answer()
 		return
 	if kind == "answer" and local_slot == 0:
 		var answer := _text(data.get("sdp"))
