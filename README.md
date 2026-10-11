@@ -46,6 +46,8 @@ Choose **ONLINE** on the main menu. One player hosts a room and reads the 4-char
 
 Each player moves only their own cursor. The host picks the stage. Both press Enter when ready. In the match, both players use the P1 keys above for their own fighter. The round waits until both inputs for that frame have arrived, so a slow connection adds a short delay.
 
+When the match ends, both players return to the main menu. That room code is closed, so the next fight needs a new room.
+
 Online needs the same game build on both computers, including `addons/webrtc_native`. The project URL and publishable key are already in the game, so the other computer does not need a separate config file. The rooms table is created by `supabase/rooms.sql`.
 
-If the two computers cannot open a direct link, the lobby says so and the match does not start.
+If the two computers cannot open a direct link, the character select screen says so and the match does not start.

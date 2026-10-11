@@ -11,6 +11,16 @@ var back_tap_frame := -999
 var prev_rel_x := 0
 
 
+func clear() -> void:
+	frame = 0
+	dir_hist.clear()
+	btn_hist.clear()
+	held_dir = Vector2i.ZERO
+	forward_tap_frame = -999
+	back_tap_frame = -999
+	prev_rel_x = 0
+
+
 func capture(sample: Dictionary) -> void:
 	frame += 1
 	held_dir = sample.get("dir", Vector2i.ZERO)

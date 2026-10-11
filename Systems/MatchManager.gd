@@ -70,6 +70,9 @@ func _begin_intro() -> void:
 	phase = Phase.INTRO
 	timer = 0
 	clock = 99 * 60
+	for node in get_tree().get_nodes_in_group("hitstop"):
+		node.frames = 0
+	GameManager.hitstop_frames = 0
 	_set_locked(true)
 	if hud:
 		hud.announce("ROUND %d" % round_number)
@@ -82,6 +85,11 @@ func _set_locked(on: bool) -> void:
 	if on:
 		p1.disable_hitbox()
 		p2.disable_hitbox()
+		return
+	if p1.buffer:
+		p1.buffer.clear()
+	if p2.buffer:
+		p2.buffer.clear()
 
 
 func _check_ko() -> bool:

@@ -91,6 +91,12 @@ var _gathered_ice: Array = []
 var _seen_remote_ice := {}
 var _link_gen := 1
 var _restart_msec := 0
+var _epoch := 0
+var _retired_ws: Array = []
+var _desc_cb := Callable()
+var _ice_cb := Callable()
+var _open_failures := 0
+var _peer_token := 0
 
 
 func _ready() -> void:
@@ -163,18 +169,13 @@ func leave() -> void:
 	_leaving = true
 	var code := room_code
 	var was_online := online
-	online = false
-	match_live = false
-	stepping = true
-	_shutdown_link()
-	room_code = ""
-	room = {}
+	_reset_session()
+	GameManager.p1_rounds = 0
+	GameManager.p2_rounds = 0
 	if was_online and code != "":
 		_request(HTTPClient.METHOD_DELETE, "/rooms?code=eq.%s" % code, "", func(_c: int, _p) -> void:
 			pass
 		)
-	GameManager.p1_rounds = 0
-	GameManager.p2_rounds = 0
 	_leaving = false
 	var tree := get_tree()
 	if tree == null or tree.current_scene == null:
@@ -291,7 +292,7 @@ func _process(delta: float) -> void:
 
 
 func _reset_session() -> void:
-	_leaving = false
+	_epoch += 1
 	_shutdown_link()
 	online = false
 	local_slot = 0
@@ -309,7 +310,15 @@ func _reset_session() -> void:
 	_channel_open = false
 	_offer_sent = false
 	_peer_acked = false
+	_awaiting_pong = false
+	_delay_bumped = false
+	_open_failures = 0
+	stall_frames = 0
+	_last_signal_msec = 0
+	_poll_wait = 0.0
+	_ws_private = false
 	_pings.clear()
+	_sums.clear()
 	local_inputs.clear()
 	remote_inputs.clear()
 	_fighters.clear()
@@ -353,6 +362,12 @@ func _on_join_fetched(code_status: int, parsed) -> void:
 		return
 	if _text(row.get("game_version")) != Constants.GAME_VERSION:
 		_set_notice("Version mismatch")
+		online = false
+		room_code = ""
+		return
+	var status := _text(row.get("status"))
+	if status == "fight" or status == "done":
+		_set_notice("That room is already finished")
 		online = false
 		room_code = ""
 		return
@@ -402,6 +417,11 @@ func _patch_path(path: String, body: Dictionary, callback: Callable) -> void:
 
 
 func _apply_room(row: Dictionary) -> void:
+	if not online or _leaving:
+		return
+	var code := _text(row.get("code"))
+	if room_code != "" and code != "" and code != room_code:
+		return
 	if _text(row.get("game_version")) not in ["", Constants.GAME_VERSION]:
 		_set_notice("Version mismatch")
 		leave()
@@ -435,7 +455,7 @@ func _consider_fight() -> void:
 
 
 func _request(method: int, path: String, body: String, callback: Callable) -> void:
-	_queue.append({"method": method, "path": path, "body": body, "callback": callback})
+	_queue.append({"method": method, "path": path, "body": body, "callback": callback, "epoch": _epoch})
 	_pump_http()
 
 
@@ -445,6 +465,7 @@ func _pump_http() -> void:
 	var job: Dictionary = _queue.pop_front()
 	_http_busy = true
 	_http.set_meta("callback", job["callback"])
+	_http.set_meta("epoch", job["epoch"])
 	var headers := PackedStringArray([
 		"apikey: %s" % _key,
 		"Authorization: Bearer %s" % _key,
@@ -454,20 +475,25 @@ func _pump_http() -> void:
 	var err := _http.request(_url + "/rest/v1" + str(job["path"]), headers, int(job["method"]), str(job["body"]))
 	if err != OK:
 		_http_busy = false
-		var callback: Callable = job["callback"]
-		callback.call(0, null)
+		_deliver_http(int(job["epoch"]), job["callback"], 0, null)
 		_pump_http()
 
 
 func _on_http(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	_http_busy = false
 	var callback: Callable = _http.get_meta("callback")
+	var epoch := int(_http.get_meta("epoch", -1))
 	var parsed = null
 	if result == HTTPRequest.RESULT_SUCCESS and body.size() > 0:
 		parsed = JSON.parse_string(body.get_string_from_utf8())
-	if callback.is_valid():
-		callback.call(code, parsed)
+	_deliver_http(epoch, callback, code, parsed)
 	_pump_http()
+
+
+func _deliver_http(epoch: int, callback: Callable, code: int, parsed) -> void:
+	if epoch != _epoch or not callback.is_valid():
+		return
+	callback.call(code, parsed)
 
 
 func _connect_ws() -> void:
@@ -481,13 +507,14 @@ func _connect_ws() -> void:
 
 
 func _poll_link() -> void:
+	_poll_retired()
 	if _ws != null:
 		_ws.poll()
 		var state := _ws.get_ready_state()
 		if state == WebSocketPeer.STATE_OPEN:
 			if _join_ref == "" and room_code != "":
 				_join_channel(false)
-			while _ws.get_available_packet_count() > 0:
+			while _ws != null and _ws.get_available_packet_count() > 0:
 				var packet := _ws.get_packet().get_string_from_utf8()
 				_on_ws_text(packet)
 			if Time.get_ticks_msec() - _heartbeat_msec > 25000:
@@ -503,6 +530,7 @@ func _poll_link() -> void:
 	if _channel != null:
 		if _channel.get_ready_state() == WebRTCDataChannel.STATE_OPEN and not _channel_open:
 			_channel_open = true
+			_open_failures = 0
 			_set_notice("Link open")
 			if local_slot == 0:
 				input_delay = maxi(input_delay, 3)
@@ -514,6 +542,8 @@ func _poll_link() -> void:
 
 
 func _on_ws_text(text: String) -> void:
+	if not online:
+		return
 	var parsed = JSON.parse_string(text)
 	if not (parsed is Dictionary):
 		return
@@ -615,13 +645,17 @@ func _ensure_link() -> void:
 
 
 func _open_peer() -> void:
+	_close_peer_only()
+	_peer_token += 1
+	var token := _peer_token
 	_peer = WebRTCPeerConnection.new()
-	_peer.session_description_created.connect(_on_local_description)
-	_peer.ice_candidate_created.connect(_on_local_ice)
+	_desc_cb = _on_local_description.bind(token)
+	_ice_cb = _on_local_ice.bind(token)
+	_peer.session_description_created.connect(_desc_cb)
+	_peer.ice_candidate_created.connect(_ice_cb)
 	var err := _peer.initialize({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
-	if err != OK:
-		link_failed = true
-		_set_notice("Could not open a direct link")
+	if err != OK or _peer == null:
+		_fail_open()
 		return
 	_channel = _peer.create_data_channel("inputs", {
 		"negotiated": true,
@@ -630,8 +664,17 @@ func _open_peer() -> void:
 		"maxRetransmits": 0,
 	})
 	if _channel == null:
+		_fail_open()
+
+
+func _fail_open() -> void:
+	_close_peer_only()
+	_open_failures += 1
+	if _open_failures >= 4:
 		link_failed = true
 		_set_notice("Could not open a direct link")
+	else:
+		_set_notice("Retrying the link")
 
 
 func link_status() -> String:
@@ -657,11 +700,17 @@ func _service_handshake() -> void:
 		return
 	if _text(room.get("guest_id")) == "" or not socket_ready:
 		return
-	var restarted := local_slot == 0 and _maybe_restart_peer()
+	var restarted := _maybe_restart_peer()
 	var now := Time.get_ticks_msec()
 	if not restarted and now - _last_signal_msec < 2000:
 		return
 	_last_signal_msec = now
+	if _peer == null:
+		if restarted:
+			return
+		_open_peer()
+		if _peer == null:
+			return
 	if local_slot == 1:
 		_broadcast({"kind": "hello", "from": client_id})
 		_resend_local()
@@ -675,17 +724,24 @@ func _service_handshake() -> void:
 
 
 func _maybe_restart_peer() -> bool:
-	if _peer == null or _local_sdp == "":
+	if _peer == null or _channel_open:
 		return false
 	var failed := _peer.get_connection_state() == WebRTCPeerConnection.STATE_FAILED
-	var no_answer := _remote_sdp == "" and _link_msec > 0 and Time.get_ticks_msec() - _link_msec > 12000
-	if not failed and not no_answer:
+	var elapsed := 0
+	if _link_msec > 0:
+		elapsed = Time.get_ticks_msec() - _link_msec
+	var no_local := local_slot == 0 and _offer_sent and _local_sdp == "" and elapsed > 4000
+	var no_answer := local_slot == 0 and _local_sdp != "" and _remote_sdp == "" and elapsed > 12000
+	var guest_waiting := local_slot == 1 and _remote_sdp == "" and elapsed > 12000
+	var channel_stuck := _remote_sdp != "" and elapsed > 20000
+	if not failed and not no_local and not no_answer and not guest_waiting and not channel_stuck:
 		return false
 	if _restart_msec != 0 and Time.get_ticks_msec() - _restart_msec < 12000:
 		return false
 	_restart_msec = Time.get_ticks_msec()
 	_link_msec = _restart_msec
-	_link_gen += 1
+	if local_slot == 0:
+		_link_gen += 1
 	_close_peer_only()
 	_open_peer()
 	_set_notice("Retrying the link")
@@ -747,16 +803,17 @@ func _on_signal(data: Dictionary) -> void:
 		})
 
 
-func _on_local_description(kind: String, sdp: String) -> void:
-	if _peer != null:
-		_peer.set_local_description(kind, sdp)
+func _on_local_description(kind: String, sdp: String, token: int) -> void:
+	if token != _peer_token or _peer == null:
+		return
+	_peer.set_local_description(kind, sdp)
 	_local_kind = kind
 	_local_sdp = sdp
 	_broadcast({"kind": kind, "sdp": sdp, "from": client_id})
 
 
-func _on_local_ice(mid: String, index: int, candidate: String) -> void:
-	if candidate == "":
+func _on_local_ice(mid: String, index: int, candidate: String, token: int) -> void:
+	if token != _peer_token or _peer == null or candidate == "":
 		return
 	var data := {"kind": "ice", "mid": mid, "index": index, "candidate": candidate, "from": client_id}
 	_gathered_ice.append(data)
@@ -827,7 +884,7 @@ func _on_packet(buf: PackedByteArray) -> void:
 			_peer_acked = true
 			delay_ready = true
 			_set_notice("Delay %d" % input_delay)
-			if _fighters.size() == 2:
+			if _fighters_live():
 				match_live = true
 			_consider_fight()
 
@@ -923,9 +980,11 @@ func _has_frame(bag: Dictionary, frame: int) -> bool:
 
 
 func _send_checksum(frame: int) -> void:
-	if _fighters.size() < 2:
+	if not _fighters_live():
 		return
 	var body := _measure()
+	if body.is_empty():
+		return
 	if not _sums.has(frame):
 		_sums[frame] = {}
 	_sums[frame]["local"] = body
@@ -963,6 +1022,8 @@ func _compare_sum(frame: int) -> void:
 
 
 func _measure() -> Dictionary:
+	if not _fighters_live():
+		return {}
 	var a = _fighters[0]
 	var b = _fighters[1]
 	return {
@@ -1043,11 +1104,21 @@ func _send_raw(buf: PackedByteArray) -> void:
 
 
 func _close_peer_only() -> void:
-	_channel = null
 	_channel_open = false
-	if _peer != null:
-		_peer.close()
-		_peer = null
+	if _channel != null:
+		if _channel.get_ready_state() != WebRTCDataChannel.STATE_CLOSED:
+			_channel.close()
+		_channel = null
+	var peer := _peer
+	_peer = null
+	if peer != null:
+		if _desc_cb.is_valid() and peer.session_description_created.is_connected(_desc_cb):
+			peer.session_description_created.disconnect(_desc_cb)
+		if _ice_cb.is_valid() and peer.ice_candidate_created.is_connected(_ice_cb):
+			peer.ice_candidate_created.disconnect(_ice_cb)
+		peer.close()
+	_desc_cb = Callable()
+	_ice_cb = Callable()
 	_local_sdp = ""
 	_local_kind = ""
 	_remote_ready = false
@@ -1064,12 +1135,37 @@ func _shutdown_link() -> void:
 	_link_msec = 0
 	_link_gen = 1
 	_restart_msec = 0
+	_desync_sent = false
+	_retire_ws()
+
+
+func _retire_ws() -> void:
+	if _ws == null:
+		return
+	if _ws.get_ready_state() == WebSocketPeer.STATE_OPEN and _join_ref != "" and room_code != "":
+		_ws_send(_join_ref, _next_ref(), _topic(), "phx_leave", {})
+	_ws.close()
+	_retired_ws.append(_ws)
+	_ws = null
 	_join_ref = ""
 	socket_ready = false
-	_desync_sent = false
-	if _ws != null:
-		_ws.close()
-		_ws = null
+
+
+func _poll_retired() -> void:
+	if _retired_ws.is_empty():
+		return
+	var still: Array = []
+	for sock in _retired_ws:
+		sock.poll()
+		while sock.get_available_packet_count() > 0:
+			sock.get_packet()
+		if sock.get_ready_state() != WebSocketPeer.STATE_CLOSED:
+			still.append(sock)
+	_retired_ws = still
+
+
+func _fighters_live() -> bool:
+	return _fighters.size() == 2 and is_instance_valid(_fighters[0]) and is_instance_valid(_fighters[1])
 
 
 func _first_row(parsed) -> Dictionary:

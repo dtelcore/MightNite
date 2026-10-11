@@ -658,13 +658,21 @@ func full_reset(x: float, floor_y: float) -> void:
 	floor_contact = true
 	invulnerable = false
 	armor_active = false
+	armor_hits_left = 0
 	locked = false
 	combo_count = 0
 	air_action_used = false
 	motion_locked = false
 	was_blocked = false
+	crouch_block = false
+	attack_move = null
+	attack_frame = 0
+	hit_connected = false
 	flash = 0
+	_hit_notes.clear()
 	disable_hitbox()
+	if buffer:
+		buffer.clear()
 	reset_pose()
 	set_crouching(false)
 	if machine:
